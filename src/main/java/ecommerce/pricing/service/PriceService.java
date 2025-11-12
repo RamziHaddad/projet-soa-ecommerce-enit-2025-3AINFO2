@@ -21,7 +21,10 @@ public class PriceService {
     private PriceRepository priceRepository;
     
     @Autowired
-    private FidelityService fidelityService;  // ✅ Service fidélité injecté
+    private FidelityService fidelityService;
+    
+    @Autowired  // ✅ AJOUT : Service promotion
+    private PromotionService promotionService;
     
     public Price createPrice(PriceRequest request) {
         // Désactiver l'ancien prix actif s'il existe
@@ -61,8 +64,11 @@ public class PriceService {
         
         BigDecimal basePrice = price.getBasePrice();
         
-        // ✅ CORRIGÉ : Appliquer la réduction fidélité avec BigDecimal
-        BigDecimal finalPrice = fidelityService.applyFidelityDiscount(basePrice, userId);
+        // ✅ CORRECTION : APPLIQUER D'ABORD LES PROMOTIONS
+        BigDecimal priceAfterPromotions = promotionService.applyPromotions(basePrice, productId);
+        
+        // ✅ PUIS APPLIQUER LA FIDÉLITÉ
+        BigDecimal finalPrice = fidelityService.applyFidelityDiscount(priceAfterPromotions, userId);
         
         return new PriceResponse(
             productId,
