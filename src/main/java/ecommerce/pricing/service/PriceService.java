@@ -20,6 +20,9 @@ public class PriceService {
     @Autowired
     private PriceRepository priceRepository;
     
+    @Autowired
+    private FidelityService fidelityService;  // ✅ Service fidélité injecté
+    
     public Price createPrice(PriceRequest request) {
         // Désactiver l'ancien prix actif s'il existe
         Optional<Price> existingActivePrice = priceRepository.findActivePriceByProductId(request.getProductId());
@@ -46,7 +49,7 @@ public class PriceService {
         return new PriceResponse(
             price.getProductId(),
             price.getBasePrice(),
-            price.getBasePrice(), // Pour l'instant, pas de promotions
+            price.getBasePrice(), // Prix sans réductions
             price.getCurrency()
         );
     }
@@ -57,10 +60,9 @@ public class PriceService {
             .orElseThrow(() -> new RuntimeException("Prix non trouvé pour le produit: " + productId));
         
         BigDecimal basePrice = price.getBasePrice();
-        BigDecimal finalPrice = basePrice;
         
-        // Ici vous ajouterez la logique pour les promotions et la fidélité plus tard
-        // Pour l'instant, on retourne le prix de base
+        // ✅ CORRIGÉ : Appliquer la réduction fidélité avec BigDecimal
+        BigDecimal finalPrice = fidelityService.applyFidelityDiscount(basePrice, userId);
         
         return new PriceResponse(
             productId,
