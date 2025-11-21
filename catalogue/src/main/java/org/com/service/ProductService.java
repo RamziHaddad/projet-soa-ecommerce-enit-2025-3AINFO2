@@ -1,5 +1,6 @@
 package org.com.service;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -9,7 +10,6 @@ import org.com.entities.Product;
 import org.com.exceptions.EntityAlreadyExistsException;
 import org.com.exceptions.EntityNotFoundException;
 import org.com.repository.ProductRepository;
-import org.com.service.OutboxService;
 
 @ApplicationScoped
 public class ProductService {
@@ -63,6 +63,7 @@ public class ProductService {
         return updatedProduct;
     }
 
+
     public void deleteProduct(UUID id) throws EntityNotFoundException {
         Product product = productRepository.findById(id);
         productRepository.delete(id);
@@ -70,5 +71,12 @@ public class ProductService {
         // Créer un événement Outbox
         outboxService.createProductEvent(product, "ProductDeleted");
     }
+
+    // NOUVELLE MÉTHODE - Pour l'Inbox (mise à jour prix seulement)
+public Product updateProductPrice(UUID id, BigDecimal newPrice) throws EntityNotFoundException {
+    Product product = productRepository.findById(id);
+    product.setPriceCatalog(newPrice);
+    return productRepository.update(product);
+}
 
 }

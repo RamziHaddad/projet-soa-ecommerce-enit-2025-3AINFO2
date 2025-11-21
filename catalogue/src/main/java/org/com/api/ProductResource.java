@@ -27,12 +27,6 @@ public class ProductResource {
     @Inject
     ProductService productService;
 
-    @GET
-    @Path("/hello")
-    @Produces(MediaType.TEXT_PLAIN)
-    public String hello() {
-        return "Hello Product Catalog";
-    }
 
     @GET
     public List<Product> findAll() {

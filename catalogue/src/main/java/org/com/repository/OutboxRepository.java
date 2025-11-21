@@ -7,6 +7,7 @@ import java.util.UUID;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import jakarta.transaction.Transactional;
 import org.com.entities.OutboxEvent;
 
@@ -18,6 +19,9 @@ public class OutboxRepository {
 
     @Transactional
     public OutboxEvent insert(OutboxEvent event) {
+        if (event.getId() == null) {
+            event.setId(UUID.randomUUID());
+        }
         em.persist(event);
         return event;
     }
@@ -26,6 +30,7 @@ public class OutboxRepository {
         return em.createQuery(
             "SELECT o FROM OutboxEvent o WHERE o.status = 'PENDING' AND o.retryCount < 3 ORDER BY o.createdAt ASC", 
             OutboxEvent.class)
+            .setLockMode(LockModeType.PESSIMISTIC_WRITE)
             .setMaxResults(limit)
             .getResultList();
     }
@@ -74,19 +79,15 @@ public class OutboxRepository {
         OutboxEvent event = em.find(OutboxEvent.class, eventId);
         if (event != null) {
             event.setStatus("FAILED");
-            event.setRetryCount(event.getRetryCount() + 1);
+            event.setProcessedAt(LocalDateTime.now());
         }
     }
 
     @Transactional
-    public void incrementRetryOrFail(UUID eventId, int maxRetries) {
+    public void incrementRetryCount(UUID eventId) {
         OutboxEvent event = em.find(OutboxEvent.class, eventId);
         if (event != null) {
             event.setRetryCount(event.getRetryCount() + 1);
-            if (event.getRetryCount() >= maxRetries) {
-                event.setStatus("FAILED");
-                event.setProcessedAt(LocalDateTime.now());
-            }
         }
     }
 

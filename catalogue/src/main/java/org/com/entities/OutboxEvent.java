@@ -9,8 +9,8 @@ import java.util.UUID;
 public class OutboxEvent {
     
     @Id
-    @GeneratedValue
-    private UUID id;
+    public UUID id;
+    
     
     @Column(nullable = false)
     private String aggregateType; // Ex: "Product"
