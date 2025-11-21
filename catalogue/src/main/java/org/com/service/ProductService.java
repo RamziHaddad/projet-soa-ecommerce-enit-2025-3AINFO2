@@ -9,12 +9,16 @@ import org.com.entities.Product;
 import org.com.exceptions.EntityAlreadyExistsException;
 import org.com.exceptions.EntityNotFoundException;
 import org.com.repository.ProductRepository;
+import org.com.service.OutboxService;
 
 @ApplicationScoped
 public class ProductService {
 
     @Inject
     ProductRepository productRepository;
+    
+    @Inject
+    OutboxService outboxService;
 
     public Product createProduct(ProductDTO dto) throws EntityAlreadyExistsException {
         Product product = new Product();
@@ -23,7 +27,12 @@ public class ProductService {
         product.setPriceCatalog(dto.getPriceCatalog());
         product.setCategoryId(dto.getCategoryId());
 
-        return productRepository.insert(product);
+         Product savedProduct = productRepository.insert(product);
+        
+        // Créer un événement Outbox
+        outboxService.createProductEvent(savedProduct, "ProductCreated");
+        
+        return savedProduct;
     }
 
     public Product getProduct(UUID id) throws EntityNotFoundException {
@@ -46,10 +55,20 @@ public class ProductService {
         product.setPriceCatalog(dto.getPriceCatalog());
         product.setCategoryId(dto.getCategoryId());
 
-        return productRepository.update(product);
+       Product updatedProduct = productRepository.update(product);
+        
+        // Créer un événement Outbox
+        outboxService.createProductEvent(updatedProduct, "ProductUpdated");
+        
+        return updatedProduct;
     }
 
-    public void deleteProduct(UUID id) {
+    public void deleteProduct(UUID id) throws EntityNotFoundException {
+        Product product = productRepository.findById(id);
         productRepository.delete(id);
+        
+        // Créer un événement Outbox
+        outboxService.createProductEvent(product, "ProductDeleted");
     }
+
 }

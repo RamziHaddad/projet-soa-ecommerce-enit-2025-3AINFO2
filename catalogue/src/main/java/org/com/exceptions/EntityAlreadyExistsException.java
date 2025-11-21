@@ -1,9 +1,12 @@
 package org.com.exceptions;
 
-public class EntityAlreadyExistsException extends Exception{
-
-    public EntityAlreadyExistsException(String msg) {
-        super(msg);
+public class EntityAlreadyExistsException extends RuntimeException {
+    
+    public EntityAlreadyExistsException(String message) {
+        super(message);
     }
-
+    
+    public EntityAlreadyExistsException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }
