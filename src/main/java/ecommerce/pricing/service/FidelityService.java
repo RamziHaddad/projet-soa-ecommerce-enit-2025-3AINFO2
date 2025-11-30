@@ -1,13 +1,14 @@
 package ecommerce.pricing.service;
 
+
 import ecommerce.pricing.entity.Fidelity;
 import ecommerce.pricing.repository.FidelityRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 @Service
 public class FidelityService {
@@ -15,7 +16,8 @@ public class FidelityService {
     @Autowired
     private FidelityRepository fidelityRepository;
 
-    // Créer ou mettre à jour un programme de fidélité
+    // ========== MÉTHODES CRUD ==========
+
     public Fidelity createOrUpdateFidelity(Long userId, Integer pointsToAdd) {
         Optional<Fidelity> existingFidelity = fidelityRepository.findByUserId(userId);
         
@@ -35,18 +37,15 @@ public class FidelityService {
         return fidelityRepository.save(fidelity);
     }
 
-    // Obtenir la fidélité d'un utilisateur
     public Fidelity getFidelityByUserId(Long userId) {
         return fidelityRepository.findByUserId(userId)
                 .orElseThrow(() -> new RuntimeException("Aucun programme de fidélité trouvé pour l'utilisateur: " + userId));
     }
 
-    // Obtenir tous les programmes de fidélité
     public List<Fidelity> getAllFidelities() {
         return fidelityRepository.findAll();
     }
 
-    // Mettre à jour la fidélité
     public Fidelity updateFidelity(Long id, Fidelity fidelityDetails) {
         Fidelity fidelity = fidelityRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Fidélité non trouvée avec l'id: " + id));
@@ -58,12 +57,12 @@ public class FidelityService {
         return fidelityRepository.save(fidelity);
     }
 
-    // Supprimer la fidélité
     public void deleteFidelity(Long id) {
         fidelityRepository.deleteById(id);
     }
 
-    // Calculer le niveau de fidélité basé sur les points
+    // ========== MÉTHODES PRIVÉES DE CALCUL ==========
+
     private String calculateLoyaltyTier(Integer points) {
         if (points >= 1000) return "PLATINUM";
         else if (points >= 500) return "GOLD";
@@ -71,7 +70,6 @@ public class FidelityService {
         else return "BRONZE";
     }
 
-    // Calculer le pourcentage de réduction basé sur le niveau
     private Double calculateDiscountPercentage(String loyaltyTier) {
         switch (loyaltyTier) {
             case "PLATINUM": return 15.0;
@@ -82,14 +80,19 @@ public class FidelityService {
         }
     }
 
-    // ✅ CORRIGÉ : Appliquer la réduction fidélité à un prix (version BigDecimal)
+    // ========== MÉTHODE D'APPLICATION DE FIDÉLITÉ (VERSION BIGDECIMAL) ==========
+
     public BigDecimal applyFidelityDiscount(BigDecimal price, Long userId) {
+       
+        if (userId == null) {
+            return price;
+        }
+
         try {
             Fidelity fidelity = getFidelityByUserId(userId);
             
-            // Calculer la réduction en BigDecimal
             BigDecimal discountPercentage = BigDecimal.valueOf(fidelity.getDiscountPercentage())
-                                                    .divide(BigDecimal.valueOf(100));
+                    .divide(BigDecimal.valueOf(100));
             
             BigDecimal discountAmount = price.multiply(discountPercentage);
             BigDecimal finalPrice = price.subtract(discountAmount);
@@ -97,13 +100,19 @@ public class FidelityService {
             return finalPrice;
             
         } catch (RuntimeException e) {
-            // Si l'utilisateur n'a pas de programme fidélité, retourner le prix original
             return price;
         }
     }
 
-    // ✅ CONSERVER l'ancienne méthode pour compatibilité (optionnel)
+    // ========== MÉTHODE POUR L'ENDPOINT /apply-discount (VERSION DOUBLE) ==========
+
+    
     public Double applyFidelityDiscount(Double price, Long userId) {
+      
+        if (userId == null) {
+            return price;
+        }
+
         try {
             Fidelity fidelity = getFidelityByUserId(userId);
             Double discount = price * (fidelity.getDiscountPercentage() / 100);
@@ -111,5 +120,4 @@ public class FidelityService {
         } catch (RuntimeException e) {
             return price;
         }
-    }
-}
+    }}

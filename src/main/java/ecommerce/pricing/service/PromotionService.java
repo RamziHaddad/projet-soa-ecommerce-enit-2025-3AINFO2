@@ -122,4 +122,16 @@ public class PromotionService {
         response.setIsActive(promotion.isActive());
         return response;
     }
+
+        // Récupérer les promotions actives pour plusieurs produits
+    public List<PromotionResponse> getActivePromotionsForProducts(List<Long> productIds) {
+        LocalDate today = LocalDate.now();
+
+        return productIds.stream()
+                .map(productId -> promotionRepository.findActivePromotionByProductId(productId, today))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
 }

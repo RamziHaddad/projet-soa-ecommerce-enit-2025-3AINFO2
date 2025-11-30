@@ -62,4 +62,10 @@ public class PromotionController {
         promotionService.deletePromotion(id);
         return ResponseEntity.noContent().build();
     }
+      @GetMapping("/batch")
+    public ResponseEntity<List<PromotionResponse>> getBatchPromotions(
+            @RequestParam List<Long> productIds) {
+        List<PromotionResponse> promotions = promotionService.getActivePromotionsForProducts(productIds);
+        return ResponseEntity.ok(promotions);
+    }
 }

@@ -1,5 +1,8 @@
 package ecommerce.pricing.service;
 
+import ecommerce.pricing.dto.BatchPriceRequest;
+import ecommerce.pricing.dto.OrderValidationRequest;
+import ecommerce.pricing.dto.OrderValidationResponse;
 import ecommerce.pricing.dto.PriceRequest;
 import ecommerce.pricing.dto.PriceResponse;
 import ecommerce.pricing.entity.Price;
@@ -10,8 +13,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -112,4 +118,63 @@ public class PriceService {
     public boolean productHasPrice(Long productId) {
         return priceRepository.existsByProductId(productId);
     }
+
+     // Calculate Final price for multiple products
+    public List<PriceResponse> calculateBatchPrices(BatchPriceRequest request) {
+        return request.getProductIds().stream()
+                .map(productId -> {
+                    try {
+                        return calculateFinalPrice(productId, request.getUserId());
+                    } catch (RuntimeException e) {
+                        return null;
+                    }
+                })
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+    }
+
+    // Validate price for an order
+    public OrderValidationResponse validateOrderPrices(OrderValidationRequest request) {
+        OrderValidationResponse response = new OrderValidationResponse();
+        List<OrderValidationResponse.ItemPrice> itemPrices = new ArrayList<>();
+        BigDecimal totalAmount = BigDecimal.ZERO;
+        boolean allValid = true;
+        String currency = "EUR";
+
+        for (OrderValidationRequest.OrderItem item : request.getItems()) {
+            try {
+                PriceResponse priceResponse = calculateFinalPrice(item.getProductId(), request.getUserId());
+
+                BigDecimal itemTotal = priceResponse.getFinalPrice()
+                        .multiply(BigDecimal.valueOf(item.getQuantity()));
+
+                itemPrices.add(new OrderValidationResponse.ItemPrice(
+                        item.getProductId(),
+                        priceResponse.getFinalPrice(),
+                        item.getQuantity(),
+                        itemTotal
+                ));
+
+                totalAmount = totalAmount.add(itemTotal);
+                currency = priceResponse.getCurrency();
+
+            } catch (RuntimeException e) {
+                allValid = false;
+                response.setMessage("Prix non trouvé pour le produit: " + item.getProductId());
+                break;
+            }
+        }
+
+        response.setValid(allValid);
+        response.setTotalAmount(totalAmount);
+        response.setCurrency(currency);
+        response.setItemPrices(itemPrices);
+
+        if (allValid) {
+            response.setMessage("Commande validée avec succès");
+        }
+
+        return response;
+    }
+
 }

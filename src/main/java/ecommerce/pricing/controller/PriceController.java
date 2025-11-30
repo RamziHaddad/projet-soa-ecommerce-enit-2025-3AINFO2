@@ -1,5 +1,8 @@
 package ecommerce.pricing.controller;
 
+import ecommerce.pricing.dto.BatchPriceRequest;
+import ecommerce.pricing.dto.OrderValidationRequest;
+import ecommerce.pricing.dto.OrderValidationResponse;
 import ecommerce.pricing.dto.PriceRequest;
 import ecommerce.pricing.dto.PriceResponse;
 import ecommerce.pricing.entity.Price;
@@ -65,5 +68,17 @@ public class PriceController {
     public ResponseEntity<Boolean> productHasPrice(@PathVariable Long productId) {
         boolean hasPrice = priceService.productHasPrice(productId);
         return ResponseEntity.ok(hasPrice);
+    }
+
+        @PostMapping("/batch")
+    public ResponseEntity<List<PriceResponse>> getBatchPrices(@RequestBody BatchPriceRequest request) {
+        List<PriceResponse> prices = priceService.calculateBatchPrices(request);
+        return ResponseEntity.ok(prices);
+    }
+    @PostMapping("/validate")
+    public ResponseEntity<OrderValidationResponse> validateOrderPrices(
+            @RequestBody OrderValidationRequest request) {
+        OrderValidationResponse response = priceService.validateOrderPrices(request);
+        return ResponseEntity.ok(response);
     }
 }
