@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,10 +27,25 @@ public class Mail {
     @Column(columnDefinition = "TEXT")
     private String body;
 
-    private boolean traite; 
+    private boolean traite;
+
+    @Column(unique = true, nullable = false)
+    private String contentHash;
+
+    @Column(nullable = false)
+    private LocalDateTime createdAt;
+
+    private LocalDateTime sentAt;
 
     @ElementCollection
     @CollectionTable(name = "mail_attachments", joinColumns = @JoinColumn(name = "mail_id"))
     @Column(name = "attachment_url")
     private List<String> attachments = new ArrayList<>();
+
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+    }
 }
