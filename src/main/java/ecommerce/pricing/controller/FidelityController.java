@@ -1,14 +1,13 @@
 package ecommerce.pricing.controller;
 
-
 import ecommerce.pricing.entity.Fidelity;
 import ecommerce.pricing.service.FidelityService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
+import ecommerce.pricing.dto.BulkFidelityUpdateRequest;
 import java.util.Map;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/fidelity")
@@ -28,8 +27,8 @@ public class FidelityController {
 
     // Obtenir tous les programmes de fidélité
     @GetMapping
-    public ResponseEntity<List<Fidelity>> getAllFidelities() {
-        return ResponseEntity.ok(fidelityService.getAllFidelities());
+    public List<Fidelity> getAllFidelities() {
+        return fidelityService.getAllFidelities();
     }
 
     // Obtenir la fidélité par ID
@@ -72,11 +71,18 @@ public class FidelityController {
         return ResponseEntity.noContent().build();
     }
 
-    // ✅ CORRECTION: Utilise maintenant la méthode Double existante
+    // Appliquer la réduction fidélité à un prix
     @GetMapping("/apply-discount")
     public ResponseEntity<Double> applyFidelityDiscount(
             @RequestParam Double price,
             @RequestParam Long userId) {
         Double finalPrice = fidelityService.applyFidelityDiscount(price, userId);
         return ResponseEntity.ok(finalPrice);
-    }}
+    }
+    @PostMapping("/bulk-update")
+    public ResponseEntity<Map<String, Object>> bulkUpdateFidelity(
+            @RequestBody BulkFidelityUpdateRequest request) {
+        Map<String, Object> result = fidelityService.bulkUpdateFidelity(request);
+        return ResponseEntity.ok(result);
+    }
+}

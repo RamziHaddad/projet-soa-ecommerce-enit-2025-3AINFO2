@@ -3,10 +3,12 @@ package ecommerce.pricing.service;
 import ecommerce.pricing.dto.PromotionRequest;
 import ecommerce.pricing.dto.PromotionResponse;
 import ecommerce.pricing.entity.Promotion;
+import ecommerce.pricing.kafka.event.PromotionExpiringKafkaEvent;
+import ecommerce.pricing.kafka.producer.KafkaProducerService;
 import ecommerce.pricing.repository.PromotionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
+import java.time.temporal.ChronoUnit;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -18,75 +20,66 @@ public class PromotionService {
 
     @Autowired
     private PromotionRepository promotionRepository;
+    @Autowired
+    private KafkaProducerService kafkaProducerService;
 
-    // Créer une promotion
     public Promotion createPromotion(PromotionRequest request) {
-        // Validation des dates
         if (request.getEndDate().isBefore(request.getStartDate())) {
             throw new RuntimeException("La date de fin doit être après la date de début");
         }
-        
+
         Promotion promotion = new Promotion();
         promotion.setProductId(request.getProductId());
         promotion.setDiscountPercentage(request.getDiscountPercentage());
         promotion.setStartDate(request.getStartDate());
         promotion.setEndDate(request.getEndDate());
         promotion.setDescription(request.getDescription());
-        
+
         return promotionRepository.save(promotion);
     }
-    
-    // Appliquer les promotions à un prix (utilisé par PriceService)
+
     public BigDecimal applyPromotions(BigDecimal basePrice, Long productId) {
-        // Trouver la promotion active du produit
         Optional<Promotion> activePromotion = promotionRepository
-            .findActivePromotionByProductId(productId, LocalDate.now());
-        
+                .findActivePromotionByProductId(productId, LocalDate.now());
+
         if (activePromotion.isPresent()) {
             Promotion promotion = activePromotion.get();
-            // Calculer le prix après réduction
             BigDecimal discountAmount = basePrice.multiply(
-                promotion.getDiscountPercentage().divide(BigDecimal.valueOf(100))
+                    promotion.getDiscountPercentage().divide(BigDecimal.valueOf(100))
             );
             return basePrice.subtract(discountAmount);
         }
-        
-        // Pas de promotion active, retourner le prix de base
+
         return basePrice;
     }
 
-    // Obtenir une promotion par ID
     public PromotionResponse getPromotionById(Long id) {
         Promotion promotion = promotionRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Promotion non trouvée avec l'id: " + id));
+                .orElseThrow(() -> new RuntimeException("Promotion non trouvée avec l'id: " + id));
         return mapToResponse(promotion);
     }
 
-    // Obtenir la promotion active d'un produit
     public PromotionResponse getActivePromotionForProduct(Long productId) {
         Optional<Promotion> promotion = promotionRepository
-            .findActivePromotionByProductId(productId, LocalDate.now());
+                .findActivePromotionByProductId(productId, LocalDate.now());
         return promotion.map(this::mapToResponse).orElse(null);
     }
 
-    // Obtenir toutes les promotions
     public List<PromotionResponse> getAllPromotions() {
         return promotionRepository.findAll().stream()
-            .map(this::mapToResponse)
-            .collect(Collectors.toList());
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
     }
 
-    // Obtenir toutes les promotions actives
     public List<PromotionResponse> getAllActivePromotions() {
         return promotionRepository.findAllActivePromotions(LocalDate.now()).stream()
-            .map(this::mapToResponse)
-            .collect(Collectors.toList());
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
     }
 
-    // Mettre à jour une promotion
     public PromotionResponse updatePromotion(Long id, PromotionRequest request) {
         Promotion promotion = promotionRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Promotion non trouvée avec l'id: " + id));
+                .orElseThrow(() -> new RuntimeException("Promotion non trouvée avec l'id: " + id));
 
         if (request.getEndDate().isBefore(request.getStartDate())) {
             throw new RuntimeException("La date de fin doit être après la date de début");
@@ -102,7 +95,6 @@ public class PromotionService {
         return mapToResponse(updated);
     }
 
-    // Supprimer une promotion
     public void deletePromotion(Long id) {
         if (!promotionRepository.existsById(id)) {
             throw new RuntimeException("Promotion non trouvée avec l'id: " + id);
@@ -110,7 +102,6 @@ public class PromotionService {
         promotionRepository.deleteById(id);
     }
 
-    // Méthode utilitaire pour convertir Entity en Response
     private PromotionResponse mapToResponse(Promotion promotion) {
         PromotionResponse response = new PromotionResponse();
         response.setId(promotion.getId());
@@ -123,7 +114,8 @@ public class PromotionService {
         return response;
     }
 
-        // Récupérer les promotions actives pour plusieurs produits
+
+     // Récupérer les promotions actives pour plusieurs produits
     public List<PromotionResponse> getActivePromotionsForProducts(List<Long> productIds) {
         LocalDate today = LocalDate.now();
 
@@ -132,6 +124,41 @@ public class PromotionService {
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+     //Récupérer les promotions qui expirent bientôt
+
+    public List<PromotionResponse> getExpiringSoonPromotions(Integer days) {
+        LocalDate today = LocalDate.now();
+        LocalDate futureDate = today.plusDays(days);
+        // Filtrer les promotions qui expirent bientôt ET qui sont actives
+        List<Promotion> expiringPromotions = promotionRepository.findAll().stream()
+                .filter(promo -> promo.isActive() &&                    // ✅ Important: seulement les actives
+                        promo.getEndDate().isAfter(today) &&
+                        promo.getEndDate().isBefore(futureDate))
+                .collect(Collectors.toList());
+
+        // ✅ NOUVEAU: Publier les événements vers Kafka
+        for (Promotion promotion : expiringPromotions) {
+            long daysRemaining = ChronoUnit.DAYS.between(today, promotion.getEndDate());
+
+            PromotionExpiringKafkaEvent kafkaEvent = new PromotionExpiringKafkaEvent(
+                    promotion.getId(),
+                    promotion.getProductId(),
+                    promotion.getDiscountPercentage(),
+                    promotion.getEndDate(),
+                    (int) daysRemaining,
+                    promotion.getDescription()
+            );
+
+            kafkaProducerService.publishPromotionExpiringEvent(kafkaEvent);
+        }
+
+        // Mapper et trier les résultats
+        return expiringPromotions.stream()
+                .map(this::mapToResponse)
+                .sorted((p1, p2) -> p1.getEndDate().compareTo(p2.getEndDate()))
                 .collect(Collectors.toList());
     }
 }
