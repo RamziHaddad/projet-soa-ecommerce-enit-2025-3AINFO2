@@ -1,6 +1,6 @@
 package ecommerce.pricing.service;
 
-
+import ecommerce.pricing.dto.BulkFidelityUpdateRequest;
 import ecommerce.pricing.entity.Fidelity;
 import ecommerce.pricing.repository.FidelityRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,11 +16,11 @@ public class FidelityService {
     @Autowired
     private FidelityRepository fidelityRepository;
 
-    // ========== MÉTHODES CRUD ==========
+    // ========== MÉTHODES EXISTANTES ==========
 
     public Fidelity createOrUpdateFidelity(Long userId, Integer pointsToAdd) {
         Optional<Fidelity> existingFidelity = fidelityRepository.findByUserId(userId);
-        
+
         Fidelity fidelity;
         if (existingFidelity.isPresent()) {
             fidelity = existingFidelity.get();
@@ -33,7 +33,7 @@ public class FidelityService {
             fidelity.setLoyaltyTier(calculateLoyaltyTier(pointsToAdd));
             fidelity.setDiscountPercentage(calculateDiscountPercentage(fidelity.getLoyaltyTier()));
         }
-        
+
         return fidelityRepository.save(fidelity);
     }
 
@@ -49,19 +49,17 @@ public class FidelityService {
     public Fidelity updateFidelity(Long id, Fidelity fidelityDetails) {
         Fidelity fidelity = fidelityRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Fidélité non trouvée avec l'id: " + id));
-        
+
         fidelity.setPoints(fidelityDetails.getPoints());
         fidelity.setLoyaltyTier(fidelityDetails.getLoyaltyTier());
         fidelity.setDiscountPercentage(fidelityDetails.getDiscountPercentage());
-        
+
         return fidelityRepository.save(fidelity);
     }
 
     public void deleteFidelity(Long id) {
         fidelityRepository.deleteById(id);
     }
-
-    // ========== MÉTHODES PRIVÉES DE CALCUL ==========
 
     private String calculateLoyaltyTier(Integer points) {
         if (points >= 1000) return "PLATINUM";
@@ -80,39 +78,24 @@ public class FidelityService {
         }
     }
 
-    // ========== MÉTHODE D'APPLICATION DE FIDÉLITÉ (VERSION BIGDECIMAL) ==========
-
     public BigDecimal applyFidelityDiscount(BigDecimal price, Long userId) {
-       
-        if (userId == null) {
-            return price;
-        }
-
         try {
             Fidelity fidelity = getFidelityByUserId(userId);
-            
+
             BigDecimal discountPercentage = BigDecimal.valueOf(fidelity.getDiscountPercentage())
                     .divide(BigDecimal.valueOf(100));
-            
+
             BigDecimal discountAmount = price.multiply(discountPercentage);
             BigDecimal finalPrice = price.subtract(discountAmount);
-            
+
             return finalPrice;
-            
+
         } catch (RuntimeException e) {
             return price;
         }
     }
 
-    // ========== MÉTHODE POUR L'ENDPOINT /apply-discount (VERSION DOUBLE) ==========
-
-    
     public Double applyFidelityDiscount(Double price, Long userId) {
-      
-        if (userId == null) {
-            return price;
-        }
-
         try {
             Fidelity fidelity = getFidelityByUserId(userId);
             Double discount = price * (fidelity.getDiscountPercentage() / 100);
@@ -120,4 +103,42 @@ public class FidelityService {
         } catch (RuntimeException e) {
             return price;
         }
-    }}
+    }
+
+    // ========== NOUVELLE MÉTHODE POUR INTER-MICROSERVICES ==========
+
+    /**
+     * Mise à jour massive des points de fidélité
+     * Utilisé par Order Service après traitement de plusieurs commandes
+     */
+    @Transactional
+    public Map<String, Object> bulkUpdateFidelity(BulkFidelityUpdateRequest request) {
+        Map<String, Object> result = new HashMap<>();
+        List<Fidelity> updatedFidelities = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+        int successCount = 0;
+        int failureCount = 0;
+
+        for (BulkFidelityUpdateRequest.FidelityUpdate update : request.getUpdates()) {
+            try {
+                Fidelity fidelity = createOrUpdateFidelity(update.getUserId(), update.getPointsToAdd());
+                updatedFidelities.add(fidelity);
+                successCount++;
+            } catch (Exception e) {
+                failureCount++;
+                errors.add("Erreur pour userId " + update.getUserId() + ": " + e.getMessage());
+            }
+        }
+
+        result.put("success", successCount);
+        result.put("failures", failureCount);
+        result.put("total", request.getUpdates().size());
+        result.put("updatedFidelities", updatedFidelities);
+
+        if (!errors.isEmpty()) {
+            result.put("errors", errors);
+        }
+
+        return result;
+    }
+}

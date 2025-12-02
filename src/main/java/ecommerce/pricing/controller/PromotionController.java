@@ -62,10 +62,16 @@ public class PromotionController {
         promotionService.deletePromotion(id);
         return ResponseEntity.noContent().build();
     }
-      @GetMapping("/batch")
+    @GetMapping("/batch")
     public ResponseEntity<List<PromotionResponse>> getBatchPromotions(
             @RequestParam List<Long> productIds) {
         List<PromotionResponse> promotions = promotionService.getActivePromotionsForProducts(productIds);
+        return ResponseEntity.ok(promotions);
+    }
+    @GetMapping("/expiring-soon")
+    public ResponseEntity<List<PromotionResponse>> getExpiringSoonPromotions(
+            @RequestParam(required = false, defaultValue = "7") Integer days) {
+        List<PromotionResponse> promotions = promotionService.getExpiringSoonPromotions(days);
         return ResponseEntity.ok(promotions);
     }
 }
