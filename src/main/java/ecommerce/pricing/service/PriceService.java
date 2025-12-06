@@ -217,4 +217,9 @@ public class PriceService {
                 .sorted(Comparator.comparing(PriceChangeEvent::getTimestamp).reversed())
                 .collect(Collectors.toList());
     }
+
+    public long getActivePricesCount() {
+        // Utilisez l'enum Price.PriceStatus.ACTIVE
+        return priceRepository.countByStatus(Price.PriceStatus.ACTIVE);
+    }
 }

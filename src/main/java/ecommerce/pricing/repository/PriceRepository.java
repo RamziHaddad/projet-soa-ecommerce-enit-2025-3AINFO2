@@ -29,4 +29,8 @@ public interface PriceRepository extends JpaRepository<Price, Long> {
     // Trouver les prix actifs pour plusieurs produits
     @Query("SELECT p FROM Price p WHERE p.productId IN :productIds AND p.status = 'ACTIVE'")
     List<Price> findActivePricesByProductIds(@Param("productIds") List<Long> productIds);
+
+    long countByStatus(Price.PriceStatus status);
+    long countByStatus(String status);  // Avec une annotation @Query
+
 }
