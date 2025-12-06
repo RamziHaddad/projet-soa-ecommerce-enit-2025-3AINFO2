@@ -3,7 +3,6 @@ package ecommerce.pricing.service;
 import ecommerce.pricing.dto.*;
 import ecommerce.pricing.entity.Price;
 import ecommerce.pricing.kafka.event.PriceChangeKafkaEvent;
-import ecommerce.pricing.kafka.producer.KafkaProducerService;
 import ecommerce.pricing.repository.PriceRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -27,8 +26,10 @@ public class PriceService {
 
     @Autowired
     private PromotionService promotionService;
+
+    // ✅ NOUVEAU: Injection du OutboxService au lieu de KafkaProducerService
     @Autowired
-    private KafkaProducerService kafkaProducerService;
+    private OutboxService outboxService;
 
     private List<PriceChangeEvent> priceChangeEvents = new ArrayList<>();
 
@@ -48,7 +49,25 @@ public class PriceService {
         newPrice.setEffectiveDate(request.getEffectiveDate() != null ? request.getEffectiveDate() : LocalDate.now());
         newPrice.setStatus(Price.PriceStatus.ACTIVE);
 
-        return priceRepository.save(newPrice);
+        Price savedPrice = priceRepository.save(newPrice);
+
+        // ✅ NOUVEAU: Créer événement Outbox pour le nouveau prix
+        PriceChangeKafkaEvent event = new PriceChangeKafkaEvent(
+                savedPrice.getProductId(),
+                BigDecimal.ZERO, // Pas d'ancien prix
+                savedPrice.getBasePrice(),
+                "PRICE_CREATED",
+                "Nouveau prix créé"
+        );
+
+        outboxService.createOutboxEvent(
+                "PRICE",
+                savedPrice.getId().toString(),
+                "PRICE_CHANGED",
+                event
+        );
+
+        return savedPrice;
     }
 
     public PriceResponse getCurrentPrice(Long productId) {
@@ -84,9 +103,13 @@ public class PriceService {
         return priceRepository.findActivePricesByProductIds(productIds);
     }
 
+    // ✅ MODIFIÉ: updatePrice utilise maintenant l'Outbox
     public Price updatePrice(Long priceId, PriceRequest request) {
         Price price = priceRepository.findById(priceId)
                 .orElseThrow(() -> new RuntimeException("Prix non trouvé avec l'id: " + priceId));
+
+        // Sauvegarder l'ancien prix pour l'événement
+        BigDecimal oldPrice = price.getBasePrice();
 
         price.setBasePrice(request.getBasePrice());
         if (request.getCurrency() != null) {
@@ -96,7 +119,25 @@ public class PriceService {
             price.setEffectiveDate(request.getEffectiveDate());
         }
 
-        return priceRepository.save(price);
+        Price savedPrice = priceRepository.save(price);
+
+        // ✅ NOUVEAU: Créer événement Outbox au lieu d'envoyer directement à Kafka
+        PriceChangeKafkaEvent event = new PriceChangeKafkaEvent(
+                savedPrice.getProductId(),
+                oldPrice,
+                savedPrice.getBasePrice(),
+                "PRICE_UPDATED",
+                "Prix mis à jour"
+        );
+
+        outboxService.createOutboxEvent(
+                "PRICE",
+                savedPrice.getId().toString(),
+                "PRICE_CHANGED",
+                event
+        );
+
+        return savedPrice;
     }
 
     public void deactivatePrice(Long priceId) {
@@ -175,7 +216,7 @@ public class PriceService {
         return response;
     }
 
-    // Notify price change
+    // ✅ MODIFIÉ: notifyPriceChange utilise maintenant l'Outbox
     public PriceChangeEvent notifyPriceChange(Long priceId, String reason) {
         Price price = priceRepository.findById(priceId)
                 .orElseThrow(() -> new RuntimeException("Prix non trouvé avec l'id: " + priceId));
@@ -194,15 +235,22 @@ public class PriceService {
         event.setReason(reason != null ? reason : "Price change notification");
 
         priceChangeEvents.add(event);
-        // Publier l'événement vers Kafka
+
+        // ✅ NOUVEAU: Utiliser Outbox au lieu d'envoyer directement à Kafka
         PriceChangeKafkaEvent kafkaEvent = new PriceChangeKafkaEvent(
                 price.getProductId(),
                 oldPrice,
                 price.getBasePrice(),
-                "PRICE_CHANGE",
+                "PRICE_NOTIFICATION",
                 reason
         );
-        kafkaProducerService.publishPriceChangeEvent(kafkaEvent);
+
+        outboxService.createOutboxEvent(
+                "PRICE",
+                price.getId().toString(),
+                "PRICE_CHANGED",
+                kafkaEvent
+        );
 
         return event;
     }
@@ -218,8 +266,8 @@ public class PriceService {
                 .collect(Collectors.toList());
     }
 
+    // ✅ HEALTH CHECK: Ajouté par votre ami
     public long getActivePricesCount() {
-        // Utilisez l'enum Price.PriceStatus.ACTIVE
         return priceRepository.countByStatus(Price.PriceStatus.ACTIVE);
     }
 }
