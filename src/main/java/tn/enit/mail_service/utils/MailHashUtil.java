@@ -3,12 +3,17 @@ package tn.enit.mail_service.utils;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 public class MailHashUtil {
 
+    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd-HH");
+
     public static String generateHash(String senderEmail, String recipientEmail, String subject, String body) {
         try {
-            String content = senderEmail + recipientEmail + subject + body;
+            String dateHeure = LocalDateTime.now().format(FORMATTER);
+            String content = senderEmail + recipientEmail + subject + body + dateHeure;
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] hash = digest.digest(content.getBytes(StandardCharsets.UTF_8));
             return bytesToHex(hash);

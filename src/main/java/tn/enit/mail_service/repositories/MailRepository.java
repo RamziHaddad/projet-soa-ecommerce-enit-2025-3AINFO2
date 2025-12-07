@@ -13,4 +13,6 @@ public interface MailRepository extends JpaRepository<Mail, Long> {
     Optional<Mail> findByContentHash(String contentHash);
     
     List<Mail> findByTraiteFalse();
+    
+    List<Mail> findByTraiteTrue();
 }
