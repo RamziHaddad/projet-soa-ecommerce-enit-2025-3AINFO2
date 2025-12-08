@@ -1,4 +1,4 @@
-## 🧠 Logique Métier (Payment Workflow)
+## Logique Métier (Payment Workflow)
 
 Le service implémente un flux de traitement séquentiel en 4 étapes via la méthode principale `processPayment` :
 
