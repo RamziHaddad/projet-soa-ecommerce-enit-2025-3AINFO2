@@ -1,6 +1,9 @@
 package com.ecommerce.payment.exception;
 
-import com.ecommerce.payment.dto.ErrorResponse;
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -8,9 +11,9 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
-import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
+import com.ecommerce.payment.dto.ErrorResponse;
+
+import feign.FeignException;
 
 @ControllerAdvice
 public class GlobalExceptionHandler {
@@ -55,5 +58,19 @@ public class GlobalExceptionHandler {
             LocalDateTime.now()
         );
         return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @ExceptionHandler(FeignException.class)
+    public ResponseEntity<ErrorResponse> handleFeignException(FeignException ex) {
+        // On récupère le code erreur envoyé par l'autre service (ex: 404, 400, 503)
+        int status = ex.status() > 0 ? ex.status() : HttpStatus.INTERNAL_SERVER_ERROR.value();
+        
+        ErrorResponse error = new ErrorResponse(
+            status,
+            "Erreur de communication avec un service tiers (Commande) : " + ex.getMessage(),
+            LocalDateTime.now()
+        );
+        
+        return new ResponseEntity<>(error, HttpStatus.valueOf(status));
     }
 }

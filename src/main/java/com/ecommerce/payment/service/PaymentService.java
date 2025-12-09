@@ -1,5 +1,12 @@
 package com.ecommerce.payment.service;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.ecommerce.payment.client.OrderClient;
 import com.ecommerce.payment.dto.PaymentRequest;
 import com.ecommerce.payment.dto.PaymentResponse;
 import com.ecommerce.payment.entity.Transaction;
@@ -8,13 +15,9 @@ import com.ecommerce.payment.enums.TransactionStatus;
 import com.ecommerce.payment.exception.InvalidPaymentException;
 import com.ecommerce.payment.exception.ResourceNotFoundException;
 import com.ecommerce.payment.repository.TransactionRepository;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDateTime;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -22,33 +25,46 @@ import java.util.List;
 public class PaymentService {
     
     private final TransactionRepository transactionRepository;
+    private final OrderClient orderClient;
+
     
     @Transactional
     public PaymentResponse processPayment(PaymentRequest request) {
-        log.info("Traitement du paiement pour la commande: {}", request.getOrderId());
+      log.info("Traitement du paiement pour la commande: {}", request.getOrderId());
         
-        // 1. Valider la demande
         validatePaymentRequest(request);
-        
-        // 2. Créer la transaction
         Transaction transaction = createTransaction(request);
         
-        // 3. Traiter le paiement
+        // Traitement logique (Banque simulée)
         boolean paymentSuccess = processPaymentLogic(request);
         
-        // 4. Mettre à jour le statut
         if (paymentSuccess) {
             transaction.setStatus(TransactionStatus.SUCCESS);
             log.info("Paiement réussi pour la transaction: {}", transaction.getId());
+            
+            // 2. COMMUNICATION SORTANTE : Notifier le service commande
+            try {
+                orderClient.updateOrderStatus(request.getOrderId(), "CONFIRMED");
+                log.info("Statut de la commande {} mis à jour vers CONFIRMED", request.getOrderId());
+            } catch (Exception e) {
+                // Important : Ne pas faire échouer le paiement si la notif échoue, 
+                // mais logger l'erreur (ou utiliser un système de retry)
+                log.error("Erreur lors de la mise à jour de la commande", e);
+            }
+            
         } else {
             transaction.setStatus(TransactionStatus.FAILED);
             log.warn("Paiement échoué pour la commande: {}", request.getOrderId());
+            
+            // 2b. Optionnel : Notifier l'échec
+            try {
+                orderClient.updateOrderStatus(request.getOrderId(), "CANCELLED");
+            } catch (Exception e) {
+                log.error("Impossible de notifier l'échec à la commande", e);
+            }
         }
         
-        // 5. Sauvegarder
         transaction = transactionRepository.save(transaction);
-        
-        // 6. Retourner la réponse
         return buildPaymentResponse(transaction);
     }
     
