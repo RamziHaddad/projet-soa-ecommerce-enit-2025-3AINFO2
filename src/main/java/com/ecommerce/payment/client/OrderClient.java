@@ -5,8 +5,9 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
-// "order-service" est le nom du microservice commande enregistré dans Eureka (si vous l'utilisez)
-// Sinon, vous pouvez utiliser url = "http://localhost:8081" pour tester en local
+
+//  url = "http://localhost:8081" pour tester en local
+//pour tester la sortie avec webhook
 @FeignClient(name = "order-service", url ="https://webhook.site/d7a28bf0-5651-46f6-9ea9-9969b1d01f36")
 public interface OrderClient {
 
