@@ -1,0 +1,17 @@
+### 1. Initialiser le stock
+POST http://localhost:8081/api/stock/init?id=iphone15&qty=100
+Content-Type: application/json
+
+### 2. Vérifier le stock disponible
+GET http://localhost:8081/api/stock/iphone15/available
+
+### 3. Simuler une commande
+POST http://localhost:8081/api/stock/iphone15/reserve?qty=10
+Content-Type: application/json
+
+### 4. Vérifier à nouveau
+GET http://localhost:8081/api/stock/iphone15/available
+
+### 5. Confirmer la vente
+POST http://localhost:8081/api/stock/iphone15/confirm?qty=10
+Content-Type: application/json
