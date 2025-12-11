@@ -49,7 +49,12 @@ Retourne les informations générales du service.
     "GET /api/ratings/product/{productId}": "Liste des notes d'un produit (public)",
     "GET /api/ratings/product/{productId}/summary": "Résumé des notes (public)",
     "POST /api/ratings": "Créer/mettre à jour une note (JWT requis)",
-    "DELETE /api/ratings/{ratingId}": "Supprimer une note (JWT requis)"
+    "DELETE /api/ratings/{ratingId}": "Supprimer une note (JWT requis)",
+    "GET /api/comments/product/{productId}": "Liste des commentaires d'un produit (public, paginé)",
+    "GET /api/comments/{commentId}": "Détails d'un commentaire (public)",
+    "POST /api/comments": "Créer un commentaire (JWT requis)",
+    "PUT /api/comments/{commentId}": "Modifier un commentaire (JWT requis)",
+    "DELETE /api/comments/{commentId}": "Supprimer un commentaire (JWT requis)"
   }
 }
 ```
@@ -622,6 +627,323 @@ curl -X DELETE http://localhost:8083/api/ratings/1 \
 4. **Performance** : L'endpoint `/summary` est optimisé pour être appelé fréquemment (par exemple, dans une liste de produits).
 
 5. **Résilience** : Si le service Catalog est indisponible, le service continue de fonctionner (les ratings sont acceptés).
+
+---
+
+# 💬 API Commentaires
+
+## Endpoints disponibles
+
+### 6. Créer un commentaire
+
+**POST** `/api/comments`
+
+Crée un nouveau commentaire pour un produit.
+
+**Authentification** : ✅ **Requis (JWT)**
+
+**Paramètres** :
+- **Body** (JSON) :
+  ```json
+  {
+    "productId": 123,
+    "content": "Excellent produit, très satisfait de mon achat !",
+    "ratingId": 1  // Optionnel: lien vers un rating existant
+  }
+  ```
+
+**Validation** :
+- `productId` : Obligatoire, doit être un entier positif
+- `content` : Obligatoire, entre 10 et 1000 caractères
+- `ratingId` : Optionnel, doit exister et appartenir à l'utilisateur si fourni
+
+**Réponse** :
+- **201 Created** :
+  ```json
+  {
+    "id": 1,
+    "productId": 123,
+    "userId": 456,
+    "content": "Excellent produit, très satisfait de mon achat !",
+    "ratingId": 1,
+    "createdAt": "2025-12-11T19:00:00",
+    "updatedAt": "2025-12-11T19:00:00"
+  }
+  ```
+
+**Codes d'erreur** :
+- **400 Bad Request** : Contenu trop court/long, productId manquant
+- **401 Unauthorized** : Token JWT manquant ou invalide
+- **404 Not Found** : Produit ou rating non trouvé
+- **500 Internal Server Error** : Erreur serveur
+
+**Exemple de requête** :
+```bash
+curl -X POST http://localhost:8083/api/comments \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -d '{
+    "productId": 123,
+    "content": "Excellent produit, très satisfait de mon achat !"
+  }'
+```
+
+---
+
+### 7. Modifier un commentaire
+
+**PUT** `/api/comments/{commentId}`
+
+Met à jour le contenu d'un commentaire existant. **Seul le propriétaire peut modifier son commentaire**.
+
+**Authentification** : ✅ **Requis (JWT)**
+
+**Paramètres** :
+- **Path** :
+  - `commentId` (Long) : L'identifiant du commentaire à modifier
+- **Body** (JSON) :
+  ```json
+  {
+    "content": "Produit correct, mais livraison un peu lente."
+  }
+  ```
+
+**Validation** :
+- `content` : Obligatoire, entre 10 et 1000 caractères
+
+**Réponse** :
+- **200 OK** :
+  ```json
+  {
+    "id": 1,
+    "productId": 123,
+    "userId": 456,
+    "content": "Produit correct, mais livraison un peu lente.",
+    "ratingId": 1,
+    "createdAt": "2025-12-11T19:00:00",
+    "updatedAt": "2025-12-11T20:00:00"
+  }
+  ```
+
+**Codes d'erreur** :
+- **400 Bad Request** : Contenu invalide
+- **401 Unauthorized** : Token JWT manquant ou invalide
+- **403 Forbidden** : L'utilisateur n'est pas le propriétaire du commentaire
+- **404 Not Found** : Commentaire non trouvé
+
+**Exemple de requête** :
+```bash
+curl -X PUT http://localhost:8083/api/comments/1 \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -d '{
+    "content": "Produit correct, mais livraison un peu lente."
+  }'
+```
+
+---
+
+### 8. Supprimer un commentaire
+
+**DELETE** `/api/comments/{commentId}`
+
+Supprime un commentaire. **Seul le propriétaire peut supprimer son commentaire**.
+
+**Authentification** : ✅ **Requis (JWT)**
+
+**Paramètres** :
+- **Path** :
+  - `commentId` (Long) : L'identifiant du commentaire à supprimer
+
+**Réponse** :
+- **204 No Content** : Commentaire supprimé avec succès (pas de body)
+
+**Codes d'erreur** :
+- **401 Unauthorized** : Token JWT manquant ou invalide
+- **403 Forbidden** : L'utilisateur n'est pas le propriétaire du commentaire
+- **404 Not Found** : Commentaire non trouvé
+
+**Exemple de requête** :
+```bash
+curl -X DELETE http://localhost:8083/api/comments/1 \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
+---
+
+### 9. Récupérer un commentaire spécifique
+
+**GET** `/api/comments/{commentId}`
+
+Retourne les détails d'un commentaire.
+
+**Authentification** : ❌ **Non requise (Public)**
+
+**Paramètres** :
+- **Path** :
+  - `commentId` (Long) : L'identifiant du commentaire
+
+**Réponse** :
+- **200 OK** :
+  ```json
+  {
+    "id": 1,
+    "productId": 123,
+    "userId": 456,
+    "content": "Excellent produit !",
+    "ratingId": 1,
+    "createdAt": "2025-12-11T19:00:00",
+    "updatedAt": "2025-12-11T19:00:00"
+  }
+  ```
+
+**Codes d'erreur** :
+- **404 Not Found** : Commentaire non trouvé
+
+**Exemple de requête** :
+```bash
+curl http://localhost:8083/api/comments/1
+```
+
+---
+
+### 10. Lister les commentaires d'un produit (paginé)
+
+**GET** `/api/comments/product/{productId}?page=0&size=20`
+
+Retourne la liste paginée des commentaires pour un produit, triés par date (plus récents en premier).
+
+**Authentification** : ❌ **Non requise (Public)**
+
+**Paramètres** :
+- **Path** :
+  - `productId` (Long) : L'identifiant du produit
+- **Query** :
+  - `page` (int, optionnel) : Numéro de page (défaut: 0)
+  - `size` (int, optionnel) : Taille de page (défaut: 20)
+
+**Réponse** :
+- **200 OK** :
+  ```json
+  {
+    "content": [
+      {
+        "id": 3,
+        "productId": 123,
+        "userId": 789,
+        "content": "Très bon rapport qualité/prix",
+        "ratingId": 5,
+        "createdAt": "2025-12-11T21:00:00",
+        "updatedAt": "2025-12-11T21:00:00"
+      },
+      {
+        "id": 1,
+        "productId": 123,
+        "userId": 456,
+        "content": "Excellent produit !",
+        "ratingId": 1,
+        "createdAt": "2025-12-11T19:00:00",
+        "updatedAt": "2025-12-11T20:00:00"
+      }
+    ],
+    "pageable": {
+      "pageNumber": 0,
+      "pageSize": 20,
+      "sort": {
+        "sorted": true,
+        "unsorted": false
+      }
+    },
+    "totalElements": 2,
+    "totalPages": 1,
+    "last": true,
+    "first": true,
+    "size": 20,
+    "number": 0
+  }
+  ```
+
+**Exemple de requête** :
+```bash
+# Page 1 avec 10 commentaires
+curl http://localhost:8083/api/comments/product/123?page=0&size=10
+
+# Page 2
+curl http://localhost:8083/api/comments/product/123?page=1&size=10
+```
+
+---
+
+### 11. Lister les commentaires d'un utilisateur (paginé)
+
+**GET** `/api/comments/user/{userId}?page=0&size=20`
+
+Retourne la liste paginée des commentaires d'un utilisateur, triés par date (plus récents en premier).
+
+**Authentification** : ❌ **Non requise (Public)**
+
+**Paramètres** :
+- **Path** :
+  - `userId` (Long) : L'identifiant de l'utilisateur
+- **Query** :
+  - `page` (int, optionnel) : Numéro de page (défaut: 0)
+  - `size` (int, optionnel) : Taille de page (défaut: 20)
+
+**Réponse** : Même format que l'endpoint précédent
+
+**Exemple de requête** :
+```bash
+curl http://localhost:8083/api/comments/user/456?page=0&size=20
+```
+
+---
+
+## 📊 Modèles de données (Commentaires)
+
+### CreateCommentRequest
+```json
+{
+  "productId": 123,
+  "content": "Excellent produit, très satisfait de mon achat !",
+  "ratingId": 1  // Optionnel
+}
+```
+
+### UpdateCommentRequest
+```json
+{
+  "content": "Produit correct, mais livraison un peu lente."
+}
+```
+
+### CommentResponse
+```json
+{
+  "id": 1,
+  "productId": 123,
+  "userId": 456,
+  "content": "Excellent produit !",
+  "ratingId": 1,
+  "createdAt": "2025-12-11T19:00:00",
+  "updatedAt": "2025-12-11T20:00:00"
+}
+```
+
+---
+
+##  Notes importantes (Commentaires)
+
+1. **Pagination** : Tous les endpoints de liste utilisent la pagination pour éviter les problèmes de performance.
+
+2. **Validation du produit** : Le service vérifie que le produit existe dans le service Catalog avant de créer un commentaire.
+
+3. **Lien avec rating** : Un commentaire peut être optionnellement lié à un rating. Si fourni, le rating doit exister et appartenir à l'utilisateur.
+
+4. **Authentification** : Seuls les endpoints de création, modification et suppression nécessitent un JWT.
+
+5. **Autorisation** : Un utilisateur ne peut modifier ou supprimer que ses propres commentaires.
+
+6. **Longueur du contenu** : Le contenu doit contenir entre 10 et 1000 caractères.
 
 ---
 

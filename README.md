@@ -46,10 +46,18 @@ L'application sera accessible sur `http://localhost:8083`
 
 ## Endpoints principaux
 
+### Ratings
 - `GET /` - Page d'accueil
 - `GET /api/ratings/product/{productId}` - Liste des notes (public)
 - `GET /api/ratings/product/{productId}/summary` - Résumé des notes (public)
 - `POST /api/ratings` - Créer/mettre à jour une note (JWT requis)
 - `DELETE /api/ratings/{ratingId}` - Supprimer une note (JWT requis)
+
+### Comments
+- `GET /api/comments/product/{productId}` - Liste des commentaires d'un produit (public, paginé)
+- `GET /api/comments/{commentId}` - Détails d'un commentaire (public)
+- `POST /api/comments` - Créer un commentaire (JWT requis)
+- `PUT /api/comments/{commentId}` - Modifier un commentaire (JWT requis)
+- `DELETE /api/comments/{commentId}` - Supprimer un commentaire (JWT requis)
 
 Pour plus de détails, consultez [API_DOCUMENTATION.md](./API_DOCUMENTATION.md)
