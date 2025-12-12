@@ -7,6 +7,8 @@ import ecommerce.pricing.repository.PriceRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -33,7 +35,8 @@ public class PriceService {
 
     private List<PriceChangeEvent> priceChangeEvents = new ArrayList<>();
 
-    public Price createPrice(PriceRequest request) {
+       @CacheEvict(value = "prices", allEntries = false, key = "#request.productId")
+        public Price createPrice(PriceRequest request) {
         // Désactiver l'ancien prix actif s'il existe
         Optional<Price> existingActivePrice = priceRepository.findActivePriceByProductId(request.getProductId());
         existingActivePrice.ifPresent(price -> {
@@ -70,6 +73,7 @@ public class PriceService {
         return savedPrice;
     }
 
+    @Cacheable(value = "prices", key = "#productId")
     public PriceResponse getCurrentPrice(Long productId) {
         Price price = priceRepository.findActivePriceByProductId(productId)
                 .orElseThrow(() -> new RuntimeException("Aucun prix actif trouvé pour le produit: " + productId));
@@ -82,6 +86,7 @@ public class PriceService {
         );
     }
 
+    @Cacheable(value = "prices", key = "'final_' + #productId + '_' + #userId")
     public PriceResponse calculateFinalPrice(Long productId, Long userId) {
         // Récupérer le prix de base
         Price price = priceRepository.findActivePriceByProductId(productId)
@@ -104,6 +109,7 @@ public class PriceService {
     }
 
     // ✅ MODIFIÉ: updatePrice utilise maintenant l'Outbox
+    @CacheEvict(value = "prices", key = "#priceId")
     public Price updatePrice(Long priceId, PriceRequest request) {
         Price price = priceRepository.findById(priceId)
                 .orElseThrow(() -> new RuntimeException("Prix non trouvé avec l'id: " + priceId));
@@ -270,4 +276,18 @@ public class PriceService {
     public long getActivePricesCount() {
         return priceRepository.countByStatus(Price.PriceStatus.ACTIVE);
     }
+
+@CacheEvict(value = "prices", key = "#productId")
+public void evictPriceCache(Long productId) {
+    System.out.println("🗑️ Invalidation manuelle du cache pour produit: " + productId);
+}
+
+/**
+ * Invalider tout le cache des prix
+ * Utilisé par le CacheController
+ */
+@CacheEvict(value = "prices", allEntries = true)
+public void evictAllPricesCache() {
+    System.out.println("🗑️ Invalidation de TOUT le cache des prix");
+}
 }
