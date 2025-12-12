@@ -2,6 +2,7 @@ package com.enit.orderservice;
 
 import com.enit.orderservice.domaine.model.Order;
 import com.enit.orderservice.domaine.model.OrderStatus;
+import com.enit.orderservice.domaine.repository.OrderRepository;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.GET;
@@ -20,11 +21,12 @@ public class ExampleResource {
     @Produces(MediaType.TEXT_PLAIN)
     @Transactional
     public String hello() {
-        Order order = Order.builder().customerId("edededd").status(OrderStatus.Created).build();
-        orderRepository.persist(order);
-
-        List<Order> all = orderRepository.findAll().list();
-        System.out.println(all);
-        return "Hello from Quarkus REST"+all;
+//        Order order = Order.builder().customerId("edededd").status(OrderStatus.Created).build();
+//        orderRepository.persist(order);
+//
+//        List<Order> all = orderRepository.findAll().list();
+//        System.out.println(all);
+//        return "Hello from Quarkus REST"+all;
+        return "Hello from Quarkus REST";
     }
 }

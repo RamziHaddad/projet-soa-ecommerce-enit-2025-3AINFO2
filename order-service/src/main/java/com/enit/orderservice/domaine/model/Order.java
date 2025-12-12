@@ -18,9 +18,26 @@ public class Order {
     private String customerId;
     private BigDecimal totalMoney;// a verifier
     private OrderStatus status;
-    private UUID clientId;
-    @OneToMany
+
+    @OneToMany(mappedBy = "order", fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItem> items;
 
+    public void cancel() {
+        this.status = OrderStatus.CANCELED;
+    }
+    public void created() {
+        this.status = OrderStatus.CREATED;
+    }
+    public void pay() {
+        this.status = OrderStatus.PAID; }
+    public void deliver() {
+        this.status = OrderStatus.DELIVERED; }
+    public void fail() {
+        this.status = OrderStatus.FAILED; }
 
+    public void recalculateTotal() {
+        this.totalMoney = items.stream()
+                .map(item -> item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
 }

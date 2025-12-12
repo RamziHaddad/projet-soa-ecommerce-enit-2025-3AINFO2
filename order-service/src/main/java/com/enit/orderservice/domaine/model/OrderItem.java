@@ -1,17 +1,23 @@
 package com.enit.orderservice.domaine.model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
-@Entity
+@Entity @Getter
+@Setter @ToString
 public class OrderItem {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID orderItemId;
     private UUID productId;
     private int quantity;
+    private BigDecimal price;
+    @ManyToOne
+    @JoinColumn(name = "order_id")
+    private Order order;
 }
