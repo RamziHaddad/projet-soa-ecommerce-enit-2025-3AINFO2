@@ -1,0 +1,212 @@
+### ==================================================================================
+### SCÉNARIO 1 : LE FLUX STANDARD (HAPPY PATH)
+### Objectif : Vérifier qu'une vente normale se déroule sans accroc.
+### ==================================================================================
+
+### 1.1. Admin : Création du produit "Samsung S24" avec 100 unités
+POST http://localhost:8082/api/stock/init?id=samsung-s24&qty=100
+Content-Type: application/json
+
+> {%
+    client.test("Création réussie", function() {
+        client.assert(response.status === 200, "Le statut devrait être 200");
+        client.assert(response.body.quantityTotal === 100, "Le stock initial doit être 100");
+    });
+%}
+
+### 1.2. Client : Commande #CMD-001 réserve 10 téléphones
+POST http://localhost:8082/api/stock/samsung-s24/reserve
+Content-Type: application/json
+
+{
+  "orderId": "CMD-001",
+  "quantity": 10
+}
+
+> {%
+    client.test("Réservation OK", function() {
+        client.assert(response.status === 200, "Devrait retourner 200 OK");
+    });
+%}
+
+### 1.3. Vérification : Le stock disponible doit être tombé à 90
+GET http://localhost:8082/api/stock/samsung-s24/available
+
+> {%
+    client.test("Stock décrémenté", function() {
+        client.assert(response.body === 90, "Le stock disponible devrait être 90 (100 - 10)");
+    });
+%}
+
+### 1.4. Paiement Validé : Confirmation de la vente
+POST http://localhost:8082/api/stock/samsung-s24/confirm
+Content-Type: application/json
+
+{
+  "orderId": "CMD-001",
+  "quantity": 10
+}
+
+### ==================================================================================
+### SCÉNARIO 2 : TEST D'IDEMPOTENCE (CRITIQUE EN PRO)
+### Objectif : Simuler un bug réseau où la demande arrive 2 fois.
+### Le stock ne doit PAS descendre deux fois.
+### ==================================================================================
+
+### 2.1. Admin : On remet un produit propre "Pixel-8"
+POST http://localhost:8082/api/stock/init?id=pixel-8&qty=50
+
+### 2.2. Premier appel de réservation (Commande #BUG-NET-01)
+POST http://localhost:8082/api/stock/pixel-8/reserve
+Content-Type: application/json
+
+{
+  "orderId": "BUG-NET-01",
+  "quantity": 5
+}
+
+### 2.3. DEUXIÈME appel identique (Le serveur reçoit la même demande par erreur)
+POST http://localhost:8082/api/stock/pixel-8/reserve
+Content-Type: application/json
+
+{
+  "orderId": "BUG-NET-01",
+  "quantity": 5
+}
+
+### 2.4. Vérification : Le stock doit être 45 (et pas 40 !)
+GET http://localhost:8082/api/stock/pixel-8/available
+
+> {%
+    client.test("Test Idempotence", function() {
+        client.assert(response.body === 45, "Le stock devrait être 45. Si c'est 40, l'idempotence a échoué !");
+    });
+%}
+
+### ==================================================================================
+### SCÉNARIO 3 : GESTION DES ERREURS (EDGE CASES)
+### Objectif : Vérifier que le système refuse les opérations illégales.
+### ==================================================================================
+
+### 3.1. Tentative de réserver plus que le stock (1000 unités sur un stock de 50)
+POST http://localhost:8082/api/stock/pixel-8/reserve
+Content-Type: application/json
+
+{
+  "orderId": "CMD-TROP-GROS",
+  "quantity": 1000
+}
+
+> {%
+    client.test("Refus Stock Insuffisant", function() {
+        // Grâce à notre GlobalExceptionHandler, on attend un 409 Conflict
+        client.assert(response.status === 409, "Devrait retourner une erreur 409 Conflict");
+    });
+%}
+
+### 3.2. Tentative avec une quantité négative (Sécurité)
+POST http://localhost:8082/api/stock/pixel-8/reserve
+Content-Type: application/json
+
+{
+  "orderId": "CMD-HACKER",
+  "quantity": -5
+}
+
+> {%
+    client.test("Refus Quantité Négative", function() {
+        // Grâce à @Min(1) et @Valid, on attend un 400 Bad Request
+        client.assert(response.status === 400, "Devrait retourner une erreur 400 Bad Request");
+    });
+%}
+
+### ==================================================================================
+### SCÉNARIO 4 : ANNULATION DE COMMANDE
+### Objectif : Le client change d'avis, le stock doit revenir.
+### ==================================================================================
+
+### 4.1. Réservation (5 unités)
+POST http://localhost:8082/api/stock/pixel-8/reserve
+Content-Type: application/json
+
+{
+  "orderId": "CMD-ANNUL-01",
+  "quantity": 5
+}
+
+### 4.2. Vérification intermédiaire (Il reste 40)
+GET http://localhost:8082/api/stock/pixel-8/available
+
+> {%
+    client.test("Stock avant annulation", function() {
+        client.assert(response.body === 40, "Devrait être à 40");
+    });
+%}
+
+### 4.3. Annulation de la commande
+POST http://localhost:8082/api/stock/pixel-8/cancel
+Content-Type: application/json
+
+{
+  "orderId": "CMD-ANNUL-01",
+  "quantity": 5
+}
+
+### 4.4. Vérification finale (Le stock doit être remonté à 45)
+GET http://localhost:8082/api/stock/pixel-8/available
+
+> {%
+    client.test("Stock après annulation", function() {
+        client.assert(response.body === 45, "Le stock devrait être revenu à 45");
+    });
+%}
+### ==================================================================================
+### SCÉNARIO 5 : GESTION D'ENTREPÔT (INVENTAIRE)
+### ==================================================================================
+
+### 5.1. Création d'un produit "Vieux-Nokia" (10 unités)
+POST http://localhost:8082/api/stock/init?id=nokia-3310&qty=10
+
+### 5.2. L'employé fait tomber une caisse : 2 téléphones cassés (Correction)
+POST http://localhost:8082/api/stock/nokia-3310/correction?qty=2&reason=Casse_Transport
+Content-Type: application/json
+
+> {%
+    client.test("Correction Stock", function() {
+        client.assert(response.status === 200, "Correction acceptée");
+    });
+%}
+
+### 5.3. Vérification : Il doit en rester 8 (10 - 2)
+GET http://localhost:8082/api/stock/nokia-3310/available
+
+> {%
+    client.test("Stock après casse", function() {
+        client.assert(response.body === 8, "Il devrait rester 8 unités");
+    });
+%}
+
+### 5.4. Tentative de suppression du produit (Doit échouer car il en reste 8)
+DELETE http://localhost:8082/api/stock/nokia-3310
+
+> {%
+    client.test("Sécurité Suppression", function() {
+        // On attend une erreur 409 (Conflit) car le stock n'est pas vide
+        client.assert(response.status === 409, "On ne doit pas pouvoir supprimer un produit avec du stock");
+    });
+%}
+
+### 5.5. On vide le stock restant (Correction de 8 pour 'Obsolescence')
+POST http://localhost:8082/api/stock/nokia-3310/correction?qty=8&reason=Obsolescence
+
+### 5.6. Maintenant on peut supprimer le produit
+DELETE http://localhost:8082/api/stock/nokia-3310
+
+> {%
+    client.test("Suppression Réussie", function() {
+        client.assert(response.status === 200, "Produit supprimé");
+    });
+%}
+
+### 5.7. Vérification finale : Le produit n'existe plus (Doit retourner 0 ou 404 selon votre code)
+GET http://localhost:8082/api/stock/nokia-3310/available
