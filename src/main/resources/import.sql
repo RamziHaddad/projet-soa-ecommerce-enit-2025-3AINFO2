@@ -8,7 +8,10 @@ INSERT INTO products (id, name, description, category, created_at) VALUES
 (6, 'Clavier Mécanique', 'Clavier mécanique RGB', 'Informatique', CURRENT_TIMESTAMP),
 (7, 'Monitor 4K', 'Ecran 4K 27 pouces', 'Electronique', CURRENT_TIMESTAMP),
 (8, 'Webcam HD', 'Webcam 1080p pour visioconférence', 'Informatique', CURRENT_TIMESTAMP);
-
+(9, 'Livre IA', 'Introduction à l''intelligence artificielle', 'Livres', CURRENT_TIMESTAMP),
+(10, 'Enceinte Bluetooth', 'Enceinte portable étanche', 'Audio', CURRENT_TIMESTAMP),
+(11, 'Tablette Graphique', 'Tablette pour dessin numérique', 'Informatique', CURRENT_TIMESTAMP),
+(12, 'Montre Connectée', 'Montre intelligente avec capteurs', 'Electronique', CURRENT_TIMESTAMP);
 -- Commandes mockées
 INSERT INTO orders (id, user_id, order_date) VALUES 
 (1, 1, '2024-01-15 10:30:00'),
@@ -33,3 +36,6 @@ INSERT INTO ratings (user_id, product_id, rating, created_at) VALUES
 (3, 1, 5, CURRENT_TIMESTAMP),
 (3, 4, 4, CURRENT_TIMESTAMP),
 (1, 7, 5, CURRENT_TIMESTAMP);
+(2, 1, 4, CURRENT_TIMESTAMP),
+(3, 3, 5, CURRENT_TIMESTAMP),
+(1, 5, 4, CURRENT_TIMESTAMP);
