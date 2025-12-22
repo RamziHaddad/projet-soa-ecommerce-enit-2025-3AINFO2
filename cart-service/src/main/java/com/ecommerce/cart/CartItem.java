@@ -6,6 +6,9 @@ public class CartItem {
     public int quantity;
     public double price;
 
+    // No-arg constructor for Jackson deserialization
+    public CartItem() {
+    }
 
     public CartItem(String productId, String name, int quantity, double price) {
         this.productId = productId;
