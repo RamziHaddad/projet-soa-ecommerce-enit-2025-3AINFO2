@@ -23,7 +23,7 @@ public class OutboxService {
     @Inject
     ObjectMapper objectMapper;
   
-
+    @Transactional
     public void createProductEvent(Product product, String eventType) {
         try {
             OutboxEvent event = new OutboxEvent();

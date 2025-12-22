@@ -22,6 +22,7 @@ public class ProductService {
     OutboxService outboxService;
     
     @Transactional
+
     public Product createProduct(ProductDTO dto) throws EntityAlreadyExistsException {
         Product product = new Product();
         product.setName(dto.getName());
@@ -69,18 +70,23 @@ public class ProductService {
     public Product updateProductPrice(UUID id, BigDecimal newPrice) throws EntityNotFoundException {
     Product product = productRepository.findById(id);
     product.setPriceCatalog(newPrice);
-                return productRepository.update(product);
+    Product updatedProduct = productRepository.update(product);
+         
+    // Le service d'indexation doit être notifié du changement de prix pour réindexer le produit 
+        outboxService.createProductEvent(updatedProduct, "ProductPriceUpdated");
+        return updatedProduct;     
+    
     }
 
-
+    @Transactional
     public Product getProduct(UUID id) throws EntityNotFoundException {
         return productRepository.findById(id);
     }
-
+    @Transactional
     public List<Product> getAllProducts() {
         return productRepository.findAll();
     }
-
+    @Transactional
     public List<Product> getProductsByCategory(UUID categoryId) {
         return productRepository.findByCategory(categoryId);
     }
