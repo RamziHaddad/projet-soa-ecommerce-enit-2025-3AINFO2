@@ -19,6 +19,10 @@ public class Order {
     private BigDecimal totalMoney;// a verifier
     private OrderStatus status;
 
+    // Saga compensation tracking fields
+    private String inventoryReservationId;
+    private String paymentId;
+
     @OneToMany(mappedBy = "order", fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItem> items;
 

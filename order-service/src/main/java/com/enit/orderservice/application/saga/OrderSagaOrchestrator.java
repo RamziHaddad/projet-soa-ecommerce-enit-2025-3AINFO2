@@ -3,14 +3,15 @@ package com.enit.orderservice.application.saga;
 import com.enit.orderservice.domaine.model.Order;
 import com.enit.orderservice.domaine.model.OrderStatus;
 import com.enit.orderservice.domaine.repository.OrderRepository;
-import com.enit.orderservice.infrastructure.messaging.OrderEventProducer;
+import com.enit.orderservice.infrastructure.messaging.producer.*;
 import com.enit.orderservice.infrastructure.messaging.events.*;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import org.jboss.logging.Logger;
-
 import java.util.UUID;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class OrderSagaOrchestrator {
@@ -18,7 +19,22 @@ public class OrderSagaOrchestrator {
     private static final Logger LOG = Logger.getLogger(OrderSagaOrchestrator.class);
 
     @Inject
-    OrderEventProducer eventProducer;
+    PricingEventProducer pricingEventProducer;
+
+    @Inject
+    InventoryEventProducer inventoryEventProducer;
+
+    @Inject
+    CardValidationEventProducer cardValidationEventProducer;
+
+    @Inject
+    PaymentEventProducer paymentEventProducer;
+
+    @Inject
+    DeliveryEventProducer deliveryEventProducer;
+
+    @Inject
+    NotificationEventProducer notificationEventProducer;
 
     @Inject
     OrderRepository orderRepository;
@@ -30,7 +46,7 @@ public class OrderSagaOrchestrator {
     public void startSaga(UUID orderId) {
         LOG.infof("Starting saga for order: %s", orderId);
         
-        Order order = orderRepository.findById(orderId);
+        Order order = orderRepository.findById(orderId).orElse(null);
         if (order == null) {
             LOG.errorf("Order not found: %s", orderId);
             return;
@@ -50,7 +66,7 @@ public class OrderSagaOrchestrator {
         event.setOrderId(order.getOrderId());
         event.setItems(order.getItems());
         
-        eventProducer.publishPricingRequest(event);
+        pricingEventProducer.publishRequest(event);
     }
 
     /**
@@ -61,7 +77,7 @@ public class OrderSagaOrchestrator {
         LOG.infof("Handling pricing response for order: %s, status: %s", 
                   event.getOrderId(), event.getStatus());
 
-        Order order = orderRepository.findById(event.getOrderId());
+        Order order = orderRepository.findById(event.getOrderId()).orElse(null);
         if (order == null) {
             LOG.errorf("Order not found: %s", event.getOrderId());
             return;
@@ -70,7 +86,7 @@ public class OrderSagaOrchestrator {
         if (event.getStatus() == EventStatus.SUCCESS) {
             // Update order with total price
             order.setTotalMoney(event.getTotalPrice());
-            orderRepository.persist(order);
+            orderRepository.save(order);
             
             // Step 2: Reserve Inventory
             requestInventoryReservation(order);
@@ -90,7 +106,7 @@ public class OrderSagaOrchestrator {
         event.setItems(order.getItems());
         event.setRelease(false); // Reserve operation
         
-        eventProducer.publishInventoryRequest(event);
+        inventoryEventProducer.publishRequest(event);
     }
 
     /**
@@ -101,7 +117,7 @@ public class OrderSagaOrchestrator {
         LOG.infof("Handling inventory response for order: %s, reserved: %s", 
                   event.getOrderId(), event.isReserved());
 
-        Order order = orderRepository.findById(event.getOrderId());
+        Order order = orderRepository.findById(event.getOrderId()).orElse(null);
         if (order == null) {
             LOG.errorf("Order not found: %s", event.getOrderId());
             return;
@@ -110,7 +126,7 @@ public class OrderSagaOrchestrator {
         if (event.isReserved()) {
             // Save reservation ID for compensation
             order.setInventoryReservationId(event.getReservationId());
-            orderRepository.persist(order);
+            orderRepository.save(order);
             
             // Step 3: Validate Card
             requestCardValidation(order);
@@ -134,7 +150,7 @@ public class OrderSagaOrchestrator {
         // event.setExpiryDate(...);
         // event.setCvv(...);
         
-        eventProducer.publishCardValidationRequest(event);
+        cardValidationEventProducer.publishRequest(event);
     }
 
     /**
@@ -145,7 +161,7 @@ public class OrderSagaOrchestrator {
         LOG.infof("Handling card validation response for order: %s, valid: %s", 
                   event.getOrderId(), event.isValid());
 
-        Order order = orderRepository.findById(event.getOrderId());
+        Order order = orderRepository.findById(event.getOrderId()).orElse(null);
         if (order == null) {
             LOG.errorf("Order not found: %s", event.getOrderId());
             return;
@@ -171,7 +187,7 @@ public class OrderSagaOrchestrator {
         event.setAmount(order.getTotalMoney());
         event.setRefund(false); // Payment operation
         
-        eventProducer.publishPaymentRequest(event);
+        paymentEventProducer.publishRequest(event);
     }
 
     /**
@@ -182,7 +198,7 @@ public class OrderSagaOrchestrator {
         LOG.infof("Handling payment response for order: %s, success: %s", 
                   event.getOrderId(), event.isSuccess());
 
-        Order order = orderRepository.findById(event.getOrderId());
+        Order order = orderRepository.findById(event.getOrderId()).orElse(null);
         if (order == null) {
             LOG.errorf("Order not found: %s", event.getOrderId());
             return;
@@ -192,7 +208,7 @@ public class OrderSagaOrchestrator {
             // Save payment ID for compensation
             order.setPaymentId(event.getPaymentId());
             order.setStatus(OrderStatus.PAID);
-            orderRepository.persist(order);
+            orderRepository.save(order);
             
             // Step 5: Create Delivery (async - fire and forget)
             requestDeliveryCreation(order);
@@ -216,10 +232,15 @@ public class OrderSagaOrchestrator {
         DeliveryCreationEvent event = new DeliveryCreationEvent();
         event.setOrderId(order.getOrderId());
         event.setCustomerId(order.getCustomerId());
-        // event.setDeliveryAddress(...); // Add to Order entity
-        // event.setProductIds(...);
+        /*event.setDeliveryAddress(order.getDeliveryAddress());
         
-        eventProducer.publishDeliveryCreationRequest(event);
+        // Extract product IDs from order items
+        List<UUID> productIds = order.getItems().stream()
+                .map(item -> item.getProductId())
+                .collect(Collectors.toList());
+        event.setProductIds(productIds);*/
+        
+        deliveryEventProducer.publishRequest(event);
     }
 
     /**
@@ -230,10 +251,10 @@ public class OrderSagaOrchestrator {
         LOG.infof("Delivery created for order: %s, tracking: %s", 
                   event.getOrderId(), event.getTrackingNumber());
         
-        Order order = orderRepository.findById(event.getOrderId());
+        Order order = orderRepository.findById(event.getOrderId()).orElse(null);
         if (order != null) {
             order.setStatus(OrderStatus.DELIVERED);
-            orderRepository.persist(order);
+            orderRepository.save(order);
         }
     }
 
@@ -249,7 +270,7 @@ public class OrderSagaOrchestrator {
         event.setType(type);
         event.setMessage("Order " + order.getOrderId() + " - " + type);
         
-        eventProducer.publishNotification(event);
+        notificationEventProducer.publishNotification(event);
     }
 
     /**
@@ -259,8 +280,8 @@ public class OrderSagaOrchestrator {
     private void completeSaga(Order order) {
         LOG.infof("Completing saga for order: %s", order.getOrderId());
         
-        order.setStatus(OrderStatus.COMPLETED);
-        orderRepository.persist(order);
+        order.setStatus(OrderStatus.DELIVERED);
+        orderRepository.save(order);
         
         LOG.infof("Saga completed successfully for order: %s", order.getOrderId());
     }
@@ -273,7 +294,7 @@ public class OrderSagaOrchestrator {
         LOG.errorf("Failing saga for order: %s, reason: %s", order.getOrderId(), reason);
         
         order.setStatus(OrderStatus.FAILED);
-        orderRepository.persist(order);
+        orderRepository.save(order);
         
         // Send failure notification
         sendNotification(order, NotificationType.ORDER_FAILED);
@@ -302,7 +323,7 @@ public class OrderSagaOrchestrator {
             refundEvent.setPaymentId(order.getPaymentId());
             refundEvent.setRefund(true); // Refund operation
             
-            eventProducer.publishPaymentRequest(refundEvent);
+            paymentEventProducer.publishRequest(refundEvent);
         }
 
         // 2. Release inventory if reserved
@@ -314,12 +335,12 @@ public class OrderSagaOrchestrator {
             releaseEvent.setItems(order.getItems());
             releaseEvent.setRelease(true); // Release operation
             
-            eventProducer.publishInventoryRequest(releaseEvent);
+            inventoryEventProducer.publishRequest(releaseEvent);
         }
 
         // 3. Mark order as failed
         order.setStatus(OrderStatus.FAILED);
-        orderRepository.persist(order);
+        orderRepository.save(order);
         
         // Send final failure notification
         sendNotification(order, NotificationType.ORDER_FAILED);

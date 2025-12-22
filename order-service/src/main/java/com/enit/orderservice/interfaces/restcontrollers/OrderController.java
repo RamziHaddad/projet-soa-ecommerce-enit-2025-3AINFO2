@@ -38,7 +38,7 @@ public class OrderController {
     @DELETE
     @Path("/delete_all")
     public void deleteAllOrders() {
-        service.DeleteAllOrders();
+        service.deleteAllOrders();
     }
 }
 
