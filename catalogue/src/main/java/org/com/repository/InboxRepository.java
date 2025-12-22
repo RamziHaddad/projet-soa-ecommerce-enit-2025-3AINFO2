@@ -3,9 +3,7 @@ package org.com.repository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
-import jakarta.transaction.Transactional;
 import org.com.entities.InboxEvent;
-
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -25,7 +23,7 @@ public class InboxRepository {
         return count > 0;
     }
 
-    @Transactional
+
     public InboxEvent insert(InboxEvent event) {
         if (event.getId() == null) {
             event.setId(UUID.randomUUID());

@@ -5,7 +5,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityExistsException;
 import jakarta.persistence.EntityManager;
-import jakarta.transaction.Transactional;
 import org.com.entities.Product;
 import org.com.exceptions.EntityAlreadyExistsException;
 import org.com.exceptions.EntityNotFoundException;
@@ -33,7 +32,7 @@ public class ProductRepository {
                 .getResultList();
     }
 
-    @Transactional
+    
     public Product insert(Product p) throws EntityAlreadyExistsException {
         if (p.getId() == null) {
             p.setId(UUID.randomUUID());
@@ -47,7 +46,7 @@ public class ProductRepository {
         throw new EntityAlreadyExistsException("product has already an id");
     }
 
-    @Transactional
+    
     public Product update(Product p) throws EntityNotFoundException {
         try {
             return em.merge(p);
@@ -56,7 +55,7 @@ public class ProductRepository {
         throw new EntityNotFoundException("cannot find product");
     }
 
-    @Transactional
+ 
     public void delete(UUID id) {
         Product p = em.find(Product.class, id);
         if (p != null) {

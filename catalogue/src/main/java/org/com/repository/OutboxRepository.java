@@ -8,7 +8,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
-import jakarta.transaction.Transactional;
 import org.com.entities.OutboxEvent;
 
 @ApplicationScoped
@@ -17,7 +16,7 @@ public class OutboxRepository {
     @Inject
     EntityManager em;
 
-    @Transactional
+   
     public OutboxEvent insert(OutboxEvent event) {
         if (event.getId() == null) {
             event.setId(UUID.randomUUID());
@@ -65,7 +64,6 @@ public class OutboxRepository {
         );
     }
 
-    @Transactional
     public void markAsProcessed(UUID eventId) {
         OutboxEvent event = em.find(OutboxEvent.class, eventId);
         if (event != null) {
@@ -74,7 +72,6 @@ public class OutboxRepository {
         }
     }
 
-    @Transactional
     public void markAsFailed(UUID eventId) {
         OutboxEvent event = em.find(OutboxEvent.class, eventId);
         if (event != null) {
@@ -83,7 +80,6 @@ public class OutboxRepository {
         }
     }
 
-    @Transactional
     public void incrementRetryCount(UUID eventId) {
         OutboxEvent event = em.find(OutboxEvent.class, eventId);
         if (event != null) {
@@ -91,7 +87,6 @@ public class OutboxRepository {
         }
     }
 
-    @Transactional
     public void resetForRetry(UUID eventId) {
         OutboxEvent event = em.find(OutboxEvent.class, eventId);
         if (event != null && "FAILED".equals(event.getStatus())) {

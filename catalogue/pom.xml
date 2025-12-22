@@ -29,17 +29,29 @@
         </dependencies>
     </dependencyManagement>
  <dependencies>
+
+    
+    <dependency>
+        <groupId>io.quarkus</groupId>
+        <artifactId>quarkus-rest</artifactId>
+     </dependency>
+
+    <dependency>
+        <groupId>io.quarkus</groupId>
+        <artifactId>quarkus-rest-jackson</artifactId>
+    </dependency>
+
+    <dependency>
+        <groupId>io.quarkus</groupId>
+        <artifactId>quarkus-rest-client</artifactId>
+    </dependency>
+
         <!-- Quarkus Core -->
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-arc</artifactId>
         </dependency>
         
-        <!-- REST APIs -->
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-resteasy-jsonb</artifactId>
-        </dependency>
         
         <!-- OpenAPI/Swagger -->
         <dependency>
