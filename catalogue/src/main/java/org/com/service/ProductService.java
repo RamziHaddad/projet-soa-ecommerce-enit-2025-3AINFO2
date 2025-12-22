@@ -62,13 +62,16 @@ public class ProductService {
         outboxService.createProductEvent(product, "ProductDeleted");
     }
 
-    // Pour l'Inbox 
+    
+    // ceci la méthode pour modifier le prix d'un produit de catalogue 
+    // déja idempotent car (id, newprice, résultat identique)
     @Transactional
     public Product updateProductPrice(UUID id, BigDecimal newPrice) throws EntityNotFoundException {
     Product product = productRepository.findById(id);
     product.setPriceCatalog(newPrice);
-    return productRepository.update(product);
+                return productRepository.update(product);
     }
+
 
     public Product getProduct(UUID id) throws EntityNotFoundException {
         return productRepository.findById(id);

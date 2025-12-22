@@ -19,9 +19,10 @@ public class OutboxService {
 
     @Inject
     OutboxRepository outboxRepository;
-
+    
     @Inject
     ObjectMapper objectMapper;
+  
 
     public void createProductEvent(Product product, String eventType) {
         try {

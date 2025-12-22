@@ -1,5 +1,6 @@
 package org.com.api;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import jakarta.inject.Inject;
@@ -56,6 +57,14 @@ public class ProductResource {
         return productService.updateProduct(id, dto);
     }
 
+    // Mettre à jour le prix d'un produit de catalogue  
+    // Put idempotent par définition HTTP
+    @PUT
+    @Path("/{id}/price")
+    public Product updatePrice(@PathParam("id") UUID id,BigDecimal newPrice) throws EntityNotFoundException {
+        return productService.updateProductPrice(id, newPrice);
+    }
+    
     @DELETE
     @Path("/{id}")
     public void delete(@PathParam("id") UUID id) {
