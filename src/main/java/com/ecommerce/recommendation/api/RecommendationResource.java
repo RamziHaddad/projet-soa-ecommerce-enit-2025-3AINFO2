@@ -1,4 +1,4 @@
-package com.ecommerce.recommendation.resource;
+package com.ecommerce.recommendation.api;
 
 import java.util.List;
 
@@ -51,12 +51,13 @@ public class RecommendationResource {
             @PathParam("userId") Long userId,
             @QueryParam("algorithm") String algorithm,
             @QueryParam("maxResults") @DefaultValue("10") Integer maxResults) {
-        
+
         RecommendationRequest request = new RecommendationRequest();
         request.setUserId(userId);
         request.setAlgorithm(algorithm);
         request.setMaxResults(maxResults);
-        
+
         return generateRecommendations(request);
     }
+
 }
