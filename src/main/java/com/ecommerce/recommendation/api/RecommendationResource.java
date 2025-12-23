@@ -60,4 +60,26 @@ public class RecommendationResource {
         return generateRecommendations(request);
     }
 
+    @GET
+    @Path("/user/{userId}/history")
+    public Response getRecommendationsFromHistory(
+            @PathParam("userId") Long userId,
+            @QueryParam("months") Integer months,
+            @QueryParam("maxResults") @DefaultValue("10") Integer maxResults) {
+        try {
+            if (months != null && months < 0) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                        .entity("{\"error\": \"months must be non-negative\"}")
+                        .build();
+            }
+
+            RecommendationResponse response = recommendationService.generateRecommendationsFromHistory(userId,
+                    months, maxResults);
+            return Response.ok(response).build();
+        } catch (Exception e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("{\"error\": \"" + e.getMessage() + "\"}")
+                    .build();
+        }
+    }
 }
