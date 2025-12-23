@@ -4,17 +4,19 @@ import java.util.List;
 
 import com.ecommerce.recommendation.algorithm.CollaborativeFiltering;
 import com.ecommerce.recommendation.algorithm.ContentBasedFiltering;
-import com.ecommerce.recommendation.algorithm.HybridFiltering;
 import com.ecommerce.recommendation.algorithm.HistoricalBasedFiltering;
+import com.ecommerce.recommendation.algorithm.HybridFiltering;
 import com.ecommerce.recommendation.dto.RecommendationRequest;
 import com.ecommerce.recommendation.dto.RecommendationResponse;
 import com.ecommerce.recommendation.dto.RecommendedProduct;
 import com.ecommerce.recommendation.entity.HistoricalRecommendation;
-import com.ecommerce.recommendation.entity.Product;
 import com.ecommerce.recommendation.entity.Order;
+import com.ecommerce.recommendation.entity.Product;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
+import jakarta.transaction.Transactional;
 
 @ApplicationScoped
 public class RecommendationService {
@@ -31,26 +33,61 @@ public class RecommendationService {
     @Inject
     HistoricalBasedFiltering historicalBasedFiltering;
 
+    @Inject
+    EntityManager em;
+
+    /**
+     * Génère des recommandations selon l'algorithme demandé.
+     * Fallback : si aucune recommandation, renvoyer les produits les mieux notés globalement.
+     */
+    @Transactional
     public RecommendationResponse generateRecommendations(RecommendationRequest request) {
-        String algorithmName = request.getAlgorithm() != null ? request.getAlgorithm() : "hybrid-filtering";
-        Integer maxResults = request.getMaxResults() != null ? request.getMaxResults() : 10;
+        if (request == null || request.getUserId() == null) {
+            throw new IllegalArgumentException("userId is required");
+        }
+
+        String algorithmName = (request.getAlgorithm() != null && !request.getAlgorithm().isBlank())
+                ? request.getAlgorithm().trim()
+                : "hybrid-filtering";
+
+        int maxResults = (request.getMaxResults() != null && request.getMaxResults() > 0)
+                ? request.getMaxResults()
+                : 10;
 
         List<RecommendedProduct> recommendations;
 
+        //  Normaliser l'algorithme réellement utilisé
         switch (algorithmName) {
             case "content-based":
                 recommendations = contentBasedFiltering.generateRecommendations(request.getUserId(), maxResults);
+                algorithmName = "content-based";
                 break;
             case "collaborative-filtering":
                 recommendations = collaborativeFiltering.generateRecommendations(request.getUserId(), maxResults);
+                algorithmName = "collaborative-filtering";
                 break;
             case "historical-based":
                 recommendations = historicalBasedFiltering.generateRecommendations(request.getUserId(), maxResults);
+                algorithmName = "historical-based";
                 break;
             case "hybrid-filtering":
             default:
                 recommendations = hybridFiltering.generateRecommendations(request.getUserId(), maxResults);
+                algorithmName = "hybrid-filtering"; // algo inconnu => fallback hybrid
                 break;
+        }
+
+        // Fallback Option A : top produits par moyenne des notes (cold start)
+        if (recommendations == null || recommendations.isEmpty()) {
+            recommendations = getTopRatedProducts(maxResults);
+
+            // Si pas de ratings du tout, on peut fallback sur les produits "récents" (optionnel)
+            if (recommendations.isEmpty()) {
+                recommendations = getRecentProductsFallback(maxResults);
+                algorithmName = "recent-products-fallback";
+            } else {
+                algorithmName = "top-rated-fallback";
+            }
         }
 
         RecommendationResponse response = new RecommendationResponse();
@@ -58,38 +95,91 @@ public class RecommendationService {
         response.setAlgorithm(algorithmName);
         response.setRecommendations(recommendations);
 
-        // Enregistrer une entrée dans historical_recommendations pour pouvoir orienter
-        // les recommandations futures
-        try {
-            if (recommendations != null && !recommendations.isEmpty() && request.getUserId() != null) {
-                // Trouver le produit le plus recommandé (par score)
-                RecommendedProduct top = recommendations.stream()
-                        .filter(r -> r.getProductId() != null)
-                        .max((a, b) -> Double.compare(a.getScore() != null ? a.getScore() : 0.0,
-                                b.getScore() != null ? b.getScore() : 0.0))
-                        .orElse(recommendations.get(0));
-
-                Long topProductId = top.getProductId();
-                String category = null;
-                if (topProductId != null) {
-                    Product product = Product.findById(topProductId);
-                    category = product != null ? product.category : null;
-                }
-
-                HistoricalRecommendation hist = new HistoricalRecommendation(request.getUserId(), category,
-                        topProductId);
-                hist.persist();
-            }
-        } catch (Exception e) {
-            // Ne pas bloquer la génération de recommandations si la persistance échoue
-            System.err.println("Erreur lors de l'enregistrement historique: " + e.getMessage());
-        }
+        // ✅ Sauvegarder l'historique sans bloquer l'API si ça échoue
+        saveTopRecommendationToHistory(request.getUserId(), recommendations);
 
         return response;
     }
 
-    public RecommendationResponse generateRecommendationsFromHistory(Long userId, Integer months,
-            Integer maxResults) {
+    /**
+     * Top produits globalement les mieux notés (moyenne).
+     
+     */
+    private List<RecommendedProduct> getTopRatedProducts(int maxResults) {
+        List<Object[]> rows = em.createQuery(
+                        "select r.productId, avg(r.rating) " +
+                        "from Rating r " +
+                        "group by r.productId " +
+                        "order by avg(r.rating) desc",
+                        Object[].class
+                )
+                .setMaxResults(maxResults)
+                .getResultList();
+
+        return rows.stream().map(row -> {
+            Number pid = (Number) row[0];
+            Long productId = pid.longValue();
+
+            Number avgNum = (Number) row[1];
+            Double avg = avgNum != null ? avgNum.doubleValue() : 0.0;
+
+            Product p = Product.findById(productId);
+
+            RecommendedProduct rp = new RecommendedProduct();
+            rp.setProductId(productId);
+            rp.setProductName(p != null ? p.name : "Produit " + productId);
+            rp.setScore(avg);
+            rp.setReason("Top produits (meilleures notes globales)");
+            return rp;
+        }).collect(java.util.stream.Collectors.toList());
+    }
+
+    /**
+     * Fallback optionnel si la table ratings est vide :
+     * renvoyer les produits les plus récents (createdAt desc).
+     */
+    private List<RecommendedProduct> getRecentProductsFallback(int maxResults) {
+        List<Product> products = Product.find("order by createdAt desc").page(0, maxResults).list();
+
+        return products.stream().map(p -> {
+            RecommendedProduct rp = new RecommendedProduct();
+            rp.setProductId(p.id);
+            rp.setProductName(p.name != null ? p.name : "Produit " + p.id);
+            rp.setScore(1.0); // score neutre
+            rp.setReason("Produits récents (fallback)");
+            return rp;
+        }).collect(java.util.stream.Collectors.toList());
+    }
+
+    /**
+     * Persister une ligne historique (top reco) sans casser l'API.
+     */
+    private void saveTopRecommendationToHistory(Long userId, List<RecommendedProduct> recommendations) {
+        try {
+            if (userId == null || recommendations == null || recommendations.isEmpty()) return;
+
+            RecommendedProduct top = recommendations.stream()
+                    .filter(r -> r.getProductId() != null)
+                    .max((a, b) -> Double.compare(a.getScore() != null ? a.getScore() : 0.0,
+                            b.getScore() != null ? b.getScore() : 0.0))
+                    .orElse(recommendations.get(0));
+
+            Long topProductId = top.getProductId();
+            String category = null;
+
+            if (topProductId != null) {
+                Product product = Product.findById(topProductId);
+                category = product != null ? product.category : null;
+            }
+
+            HistoricalRecommendation hist = new HistoricalRecommendation(userId, category, topProductId);
+            hist.persist();
+        } catch (Exception e) {
+            System.err.println("Erreur lors de l'enregistrement historique: " + e.getMessage());
+        }
+    }
+
+    public RecommendationResponse generateRecommendationsFromHistory(Long userId, Integer months, Integer maxResults) {
         // Si months est fourni, prendre la date actuelle et reculer de 'months' mois
         java.time.LocalDateTime since = null;
         if (months != null) {
@@ -117,8 +207,8 @@ public class RecommendationService {
         // Compléter avec commandes
         java.util.List<Order> orders = Order.list("userId", userId);
         for (Order o : orders) {
-            o.items.forEach(
-                    item -> productFreq.put(item.getProductId(), productFreq.getOrDefault(item.getProductId(), 0) + 1));
+            o.items.forEach(item -> productFreq.put(item.getProductId(),
+                    productFreq.getOrDefault(item.getProductId(), 0) + 1));
         }
 
         java.util.Map<Long, Double> productScores = new java.util.HashMap<>();
@@ -134,9 +224,11 @@ public class RecommendationService {
                 productScores.put(p.id, score);
         }
 
+        int limit = (maxResults != null && maxResults > 0) ? maxResults : 10;
+
         java.util.List<RecommendedProduct> recommendations = productScores.entrySet().stream()
                 .sorted(java.util.Map.Entry.<Long, Double>comparingByValue().reversed())
-                .limit(maxResults != null ? maxResults : 10)
+                .limit(limit)
                 .map(entry -> {
                     RecommendedProduct rp = new RecommendedProduct();
                     Product prod = Product.findById(entry.getKey());
@@ -157,6 +249,11 @@ public class RecommendationService {
     }
 
     public List<String> getAvailableAlgorithms() {
-        return List.of("collaborative-filtering", "content-based", "hybrid-filtering", "historical-based");
+        return List.of(
+                collaborativeFiltering.getName(),
+                contentBasedFiltering.getName(),
+                hybridFiltering.getName(),
+                historicalBasedFiltering.getName()
+        );
     }
 }
