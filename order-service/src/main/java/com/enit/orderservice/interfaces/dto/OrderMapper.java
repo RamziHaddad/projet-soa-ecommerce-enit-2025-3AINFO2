@@ -14,6 +14,7 @@ public class OrderMapper {
     public static Order toDomain(OrderRequestDTO dto) {
         Order order = new Order();
         order.setCustomerId(dto.customerId());
+        order.setDeliveryAddress(dto.deliveryAddress());
 
         List<OrderItem> items = dto.items() == null ? List.of() :
                 dto.items().stream()
@@ -47,6 +48,7 @@ public class OrderMapper {
         return new OrderResponseDTO(
                 order.getOrderId(),
                 order.getCustomerId(),
+                order.getDeliveryAddress(),
                 order.getTotalMoney(),
                 order.getStatus().name(),
                 items

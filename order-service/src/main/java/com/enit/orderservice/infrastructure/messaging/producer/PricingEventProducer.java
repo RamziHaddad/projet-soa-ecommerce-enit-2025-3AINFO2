@@ -1,5 +1,6 @@
 package com.enit.orderservice.infrastructure.messaging.producer;
 
+import com.enit.orderservice.infrastructure.exception.MessagePublishException;
 import com.enit.orderservice.infrastructure.messaging.events.PricingRequestEvent;
 import io.smallrye.reactive.messaging.kafka.api.OutgoingKafkaRecordMetadata;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -30,14 +31,19 @@ public class PricingEventProducer {
     public void publishRequest(PricingRequestEvent event) {
         LOG.infof("Publishing pricing request for order: %s", event.getOrderId());
         
-        // Create message with Kafka metadata (key = orderId for partitioning)
-        Message<PricingRequestEvent> message = Message.of(event)
-                .addMetadata(OutgoingKafkaRecordMetadata.builder()
-                        .withKey(event.getOrderId().toString())
-                        .build());
-        
-        // Send to Kafka topic: pricing-requests
-        pricingEmitter.send(message);
+        try {
+            // Create message with Kafka metadata (key = orderId for partitioning)
+            Message<PricingRequestEvent> message = Message.of(event)
+                    .addMetadata(OutgoingKafkaRecordMetadata.builder()
+                            .withKey(event.getOrderId().toString())
+                            .build());
+            
+            // Send to Kafka topic: pricing-requests
+            pricingEmitter.send(message);
+        } catch (Exception e) {
+            LOG.errorf(e, "Failed to publish pricing request for order: %s", event.getOrderId());
+            throw new MessagePublishException("pricing-requests", event, e);
+        }
         
         LOG.infof("Pricing request published successfully for order: %s", event.getOrderId());
     }

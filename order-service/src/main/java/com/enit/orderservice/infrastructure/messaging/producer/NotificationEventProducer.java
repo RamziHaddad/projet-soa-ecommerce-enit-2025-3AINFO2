@@ -1,5 +1,6 @@
 package com.enit.orderservice.infrastructure.messaging.producer;
 
+import com.enit.orderservice.infrastructure.exception.MessagePublishException;
 import com.enit.orderservice.infrastructure.messaging.events.NotificationEvent;
 import io.smallrye.reactive.messaging.kafka.api.OutgoingKafkaRecordMetadata;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -32,15 +33,20 @@ public class NotificationEventProducer {
         LOG.infof("Publishing notification for order: %s, type: %s", 
                   event.getOrderId(), event.getType());
         
-        // Create message with Kafka metadata (key = customerId for partitioning)
-        Message<NotificationEvent> message = Message.of(event)
-                .addMetadata(OutgoingKafkaRecordMetadata.builder()
-                        .withKey(event.getCustomerId())
-                        .build());
-        
-        // Send to Kafka topic: notifications
-        notificationEmitter.send(message);
-        
-        LOG.infof("Notification published successfully for order: %s", event.getOrderId());
+        try {
+            // Create message with Kafka metadata (key = customerId for partitioning)
+            Message<NotificationEvent> message = Message.of(event)
+                    .addMetadata(OutgoingKafkaRecordMetadata.builder()
+                            .withKey(event.getCustomerId())
+                            .build());
+            
+            // Send to Kafka topic: notifications
+            notificationEmitter.send(message);
+            
+            LOG.infof("Notification published successfully for order: %s", event.getOrderId());
+        } catch (Exception e) {
+            LOG.errorf(e, "Failed to publish notification for order: %s", event.getOrderId());
+            throw new MessagePublishException("notifications", event, e);
+        }
     }
 }

@@ -1,7 +1,6 @@
 package com.enit.orderservice;
 
-import com.enit.orderservice.domaine.model.Order;
-import com.enit.orderservice.domaine.model.OrderStatus;
+
 import com.enit.orderservice.domaine.repository.OrderRepository;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -10,7 +9,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 
-import java.util.List;
+
 
 @Path("/hello")
 public class ExampleResource {

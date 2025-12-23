@@ -1,5 +1,6 @@
 package com.enit.orderservice.infrastructure.messaging.producer;
 
+import com.enit.orderservice.infrastructure.exception.MessagePublishException;
 import com.enit.orderservice.infrastructure.messaging.events.DeliveryCreationEvent;
 import io.smallrye.reactive.messaging.kafka.api.OutgoingKafkaRecordMetadata;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -31,15 +32,20 @@ public class DeliveryEventProducer {
     public void publishRequest(DeliveryCreationEvent event) {
         LOG.infof("Publishing delivery creation request for order: %s", event.getOrderId());
         
-        // Create message with Kafka metadata (key = orderId for partitioning)
-        Message<DeliveryCreationEvent> message = Message.of(event)
-                .addMetadata(OutgoingKafkaRecordMetadata.builder()
-                        .withKey(event.getOrderId().toString())
-                        .build());
-        
-        // Send to Kafka topic: delivery-requests
-        deliveryEmitter.send(message);
-        
-        LOG.infof("Delivery creation request published successfully for order: %s", event.getOrderId());
+        try {
+            // Create message with Kafka metadata (key = orderId for partitioning)
+            Message<DeliveryCreationEvent> message = Message.of(event)
+                    .addMetadata(OutgoingKafkaRecordMetadata.builder()
+                            .withKey(event.getOrderId().toString())
+                            .build());
+            
+            // Send to Kafka topic: delivery-requests
+            deliveryEmitter.send(message);
+            
+            LOG.infof("Delivery creation request published successfully for order: %s", event.getOrderId());
+        } catch (Exception e) {
+            LOG.errorf(e, "Failed to publish delivery creation request for order: %s", event.getOrderId());
+            throw new MessagePublishException("delivery-requests", event, e);
+        }
     }
 }

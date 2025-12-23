@@ -1,5 +1,6 @@
 package com.enit.orderservice.infrastructure.messaging.producer;
 
+import com.enit.orderservice.infrastructure.exception.MessagePublishException;
 import com.enit.orderservice.infrastructure.messaging.events.PaymentRequestEvent;
 import io.smallrye.reactive.messaging.kafka.api.OutgoingKafkaRecordMetadata;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -31,15 +32,20 @@ public class PaymentEventProducer {
         String operation = event.isRefund() ? "refund" : "payment";
         LOG.infof("Publishing %s request for order: %s", operation, event.getOrderId());
         
-        // Create message with Kafka metadata (key = orderId for partitioning)
-        Message<PaymentRequestEvent> message = Message.of(event)
-                .addMetadata(OutgoingKafkaRecordMetadata.builder()
-                        .withKey(event.getOrderId().toString())
-                        .build());
-        
-        // Send to Kafka topic: payment-requests
-        paymentEmitter.send(message);
-        
-        LOG.infof("Payment request published successfully for order: %s", event.getOrderId());
+        try {
+            // Create message with Kafka metadata (key = orderId for partitioning)
+            Message<PaymentRequestEvent> message = Message.of(event)
+                    .addMetadata(OutgoingKafkaRecordMetadata.builder()
+                            .withKey(event.getOrderId().toString())
+                            .build());
+            
+            // Send to Kafka topic: payment-requests
+            paymentEmitter.send(message);
+            
+            LOG.infof("Payment request published successfully for order: %s", event.getOrderId());
+        } catch (Exception e) {
+            LOG.errorf(e, "Failed to publish %s request for order: %s", operation, event.getOrderId());
+            throw new MessagePublishException("payment-requests", event, e);
+        }
     }
 }

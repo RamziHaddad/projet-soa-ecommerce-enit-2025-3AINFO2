@@ -10,6 +10,8 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 @ApplicationScoped
 @Transactional
@@ -48,6 +50,20 @@ public class OrderApplicationService {
      */
     public List<Order> getOrders() {
         return orderRepository.listAll();
+    }
+    
+    /**
+     * Find order by ID
+     */
+    public Optional<Order> findOrderById(UUID orderId) {
+        return orderRepository.findById(orderId);
+    }
+    
+    /**
+     * Save or update an order
+     */
+    public Order saveOrder(Order order) {
+        return orderRepository.save(order);
     }
     
     /**

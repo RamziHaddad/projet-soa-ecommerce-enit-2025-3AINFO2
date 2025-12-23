@@ -16,6 +16,7 @@ public class Order {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID orderId;
     private String customerId;
+    private String deliveryAddress;
     private BigDecimal totalMoney;// a verifier
     private OrderStatus status;
 

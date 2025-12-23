@@ -1,5 +1,6 @@
 package com.enit.orderservice.infrastructure.messaging.producer;
 
+import com.enit.orderservice.infrastructure.exception.MessagePublishException;
 import com.enit.orderservice.infrastructure.messaging.events.InventoryRequestEvent;
 import io.smallrye.reactive.messaging.kafka.api.OutgoingKafkaRecordMetadata;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -33,15 +34,20 @@ public class InventoryEventProducer {
         String operation = event.isRelease() ? "release" : "reserve";
         LOG.infof("Publishing inventory %s request for order: %s", operation, event.getOrderId());
         
-        // Create message with Kafka metadata (key = orderId for partitioning)
-        Message<InventoryRequestEvent> message = Message.of(event)
-                .addMetadata(OutgoingKafkaRecordMetadata.builder()
-                        .withKey(event.getOrderId().toString())
-                        .build());
-        
-        // Send to Kafka topic: inventory-requests
-        inventoryEmitter.send(message);
-        
-        LOG.infof("Inventory %s request published successfully for order: %s", operation, event.getOrderId());
+        try {
+            // Create message with Kafka metadata (key = orderId for partitioning)
+            Message<InventoryRequestEvent> message = Message.of(event)
+                    .addMetadata(OutgoingKafkaRecordMetadata.builder()
+                            .withKey(event.getOrderId().toString())
+                            .build());
+            
+            // Send to Kafka topic: inventory-requests
+            inventoryEmitter.send(message);
+            
+            LOG.infof("Inventory %s request published successfully for order: %s", operation, event.getOrderId());
+        } catch (Exception e) {
+            LOG.errorf(e, "Failed to publish inventory %s request for order: %s", operation, event.getOrderId());
+            throw new MessagePublishException("inventory-requests", event, e);
+        }
     }
 }
