@@ -3,6 +3,8 @@ package com.ecommerce.payment.service;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,81 +18,102 @@ import com.ecommerce.payment.exception.InvalidPaymentException;
 import com.ecommerce.payment.exception.ResourceNotFoundException;
 import com.ecommerce.payment.repository.TransactionRepository;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-
 @Service
-@RequiredArgsConstructor
-@Slf4j
 public class PaymentService {
     
+    private static final Logger log = LoggerFactory.getLogger(PaymentService.class);
+
     private final TransactionRepository transactionRepository;
     private final OrderClient orderClient;
 
-    
+    public PaymentService(TransactionRepository transactionRepository, OrderClient orderClient) {
+        this.transactionRepository = transactionRepository;
+        this.orderClient = orderClient;
+    }
+
     @Transactional
     public PaymentResponse processPayment(PaymentRequest request) {
-      log.info("Traitement du paiement pour la commande: {}", request.getOrderId());
+        log.info("Traitement du paiement pour la commande: {}", request.getOrderId());
         
+        // --- 1. SÉCURITÉ : IDEMPOTENCE ---
+        if (transactionRepository.existsByRequestId(request.getRequestId())) {
+            log.warn("Tentative de doublon détectée pour le requestId: {}", request.getRequestId());
+            throw new InvalidPaymentException("Doublon détecté : Ce paiement a déjà été traité !");
+        }
+
         validatePaymentRequest(request);
         Transaction transaction = createTransaction(request);
         
-        // Traitement logique (Banque simulée)
         boolean paymentSuccess = processPaymentLogic(request);
         
         if (paymentSuccess) {
             transaction.setStatus(TransactionStatus.SUCCESS);
             log.info("Paiement réussi pour la transaction: {}", transaction.getId());
-            
-            // 2. COMMUNICATION SORTANTE : Notifier le service commande
             try {
                 orderClient.updateOrderStatus(request.getOrderId(), "CONFIRMED");
-                log.info("Statut de la commande {} mis à jour vers CONFIRMED", request.getOrderId());
             } catch (Exception e) {
-                // Important : Ne pas faire échouer le paiement si la notif échoue, 
-                // mais logger l'erreur (ou utiliser un système de retry)
-                log.error("Erreur lors de la mise à jour de la commande", e);
+                log.error("Erreur notification commande", e);
             }
-            
         } else {
             transaction.setStatus(TransactionStatus.FAILED);
-            log.warn("Paiement échoué pour la commande: {}", request.getOrderId());
-            
-            // 2b. Optionnel : Notifier l'échec
             try {
                 orderClient.updateOrderStatus(request.getOrderId(), "CANCELLED");
             } catch (Exception e) {
-                log.error("Impossible de notifier l'échec à la commande", e);
+                log.error("Erreur notification échec commande", e);
             }
         }
         
         transaction = transactionRepository.save(transaction);
         return buildPaymentResponse(transaction);
     }
+
+    public Transaction getTransactionById(Long id) {
+        return transactionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Transaction introuvable"));
+    }
+    
+    public List<Transaction> getTransactionsByUserId(Long userId) {
+        return transactionRepository.findByUserId(userId);
+    }
+
+    public List<Transaction> getTransactionsByOrderId(Long orderId) {
+        return transactionRepository.findByOrderId(orderId);
+    }
+
+    public PaymentResponse refundTransaction(Long transactionId) {
+        log.info("Traitement du remboursement pour la transaction: {}", transactionId);
+        
+        Transaction transaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Transaction introuvable pour le remboursement"));
+
+        if (transaction.getStatus() == TransactionStatus.REFUNDED) {
+             throw new InvalidPaymentException("Cette transaction est déjà remboursée.");
+        }
+
+        transaction.setStatus(TransactionStatus.REFUNDED);
+        transaction = transactionRepository.save(transaction);
+        
+        log.info("Transaction {} remboursée avec succès", transactionId);
+        
+        return buildPaymentResponse(transaction);
+    }
     
     private void validatePaymentRequest(PaymentRequest request) {
-        // Vérifier si la méthode de paiement nécessite des infos de carte
         if (request.getPaymentMethod() == PaymentMethod.CARD) {
             if (request.getCardNumber() == null || request.getCardNumber().isEmpty()) {
-                throw new InvalidPaymentException("Le numéro de carte est obligatoire pour ce mode de paiement");
+                throw new InvalidPaymentException("Numéro de carte obligatoire");
             }
             if (request.getExpiryDate() == null || request.getExpiryDate().isEmpty()) {
-                throw new InvalidPaymentException("La date d'expiration est obligatoire");
+                throw new InvalidPaymentException("Date expiration obligatoire");
             }
         }
-        
-        // Vérifier que le montant est raisonnable
-        if (request.getAmount() <= 0) {
-            throw new InvalidPaymentException("Le montant doit être supérieur à 0");
-        }
-        
-        if (request.getAmount() > 50000) {
-            throw new InvalidPaymentException("Le montant dépasse la limite autorisée");
-        }
+        if (request.getAmount() <= 0) throw new InvalidPaymentException("Le montant doit être > 0");
     }
     
     private Transaction createTransaction(PaymentRequest request) {
         Transaction transaction = new Transaction();
+        transaction.setRequestId(request.getRequestId());
+        
         transaction.setOrderId(request.getOrderId());
         transaction.setUserId(request.getUserId());
         transaction.setAmount(request.getAmount());
@@ -100,89 +123,16 @@ public class PaymentService {
         transaction.setTransactionDate(LocalDateTime.now());
         transaction.setDescription(request.getDescription());
         
-        // Masquer le numéro de carte
-        if (request.getCardNumber() != null) {
-            transaction.setCardNumber(maskCardNumber(request.getCardNumber()));
+        if (request.getCardNumber() != null && request.getCardNumber().length() >= 4) {
+            transaction.setCardNumber("**** **** **** " + request.getCardNumber().substring(request.getCardNumber().length() - 4));
             transaction.setCardHolderName(request.getCardHolderName());
             transaction.setExpiryDate(request.getExpiryDate());
         }
-        
         return transaction;
     }
     
     private boolean processPaymentLogic(PaymentRequest request) {
-        // SIMULATION : Dans un vrai système, vous communiqueriez avec une banque
-        
-        try {
-            // Simuler un délai de traitement
-            Thread.sleep(1000);
-            
-            // Règles métier pour simulation
-            // 1. Rejeter si montant > 10000 (limite de sécurité)
-            if (request.getAmount() > 10000) {
-                log.warn("Montant trop élevé: {}", request.getAmount());
-                return false;
-            }
-            
-            // 2. Vérifier la date d'expiration (si carte)
-            if (request.getPaymentMethod() == PaymentMethod.CARD) {
-                if (!isCardValid(request.getExpiryDate())) {
-                    log.warn("Carte expirée");
-                    return false;
-                }
-            }
-            
-            // 3. Simuler 5% de rejets aléatoires (plus réaliste)
-            if (Math.random() < 0.05) {
-                log.warn("Paiement rejeté aléatoirement (simulation)");
-                return false;
-            }
-            
-            // Paiement accepté
-            return true;
-            
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            log.error("Erreur lors du traitement du paiement", e);
-            return false;
-        }
-    }
-    
-    private boolean isCardValid(String expiryDate) {
-        if (expiryDate == null || expiryDate.isEmpty()) {
-            return false;
-        }
-        
-        try {
-            String[] parts = expiryDate.split("/");
-            int month = Integer.parseInt(parts[0]);
-            int year = Integer.parseInt(parts[1]);
-            
-            LocalDateTime now = LocalDateTime.now();
-            int currentYear = now.getYear();
-            int currentMonth = now.getMonthValue();
-            
-            // Vérifier que la carte n'est pas expirée
-            if (year < currentYear) {
-                return false;
-            }
-            if (year == currentYear && month < currentMonth) {
-                return false;
-            }
-            
-            return true;
-        } catch (Exception e) {
-            log.error("Erreur lors de la validation de la date d'expiration", e);
-            return false;
-        }
-    }
-    
-    private String maskCardNumber(String cardNumber) {
-        if (cardNumber == null || cardNumber.length() < 4) {
-            return "****";
-        }
-        String lastFour = cardNumber.substring(cardNumber.length() - 4);
-        return "**** **** **** " + lastFour;
+        return request.getAmount() <= 10000;
     }
     
     private PaymentResponse buildPaymentResponse(Transaction transaction) {
@@ -194,56 +144,15 @@ public class PaymentService {
         response.setCurrency(transaction.getCurrency());
         response.setTimestamp(transaction.getTransactionDate());
         
+        String message;
         if (transaction.getStatus() == TransactionStatus.SUCCESS) {
-            response.setMessage("Paiement effectué avec succès");
-        } else if (transaction.getStatus() == TransactionStatus.FAILED) {
-            response.setMessage("Le paiement a échoué. Veuillez réessayer.");
+            message = "Paiement réussi";
+        } else if (transaction.getStatus() == TransactionStatus.REFUNDED) {
+            message = "Remboursement effectué";
         } else {
-            response.setMessage("Paiement en cours de traitement");
+            message = "Échec du paiement";
         }
-        
-        return response;
-    }
-    
-    // Méthodes supplémentaires
-    
-    public Transaction getTransactionById(Long id) {
-        return transactionRepository.findById(id)
-            .orElseThrow(() -> new ResourceNotFoundException("Transaction non trouvée avec l'ID: " + id));
-    }
-    
-    public List<Transaction> getTransactionsByUserId(Long userId) {
-        return transactionRepository.findByUserId(userId);
-    }
-    
-    public List<Transaction> getTransactionsByOrderId(Long orderId) {
-        return transactionRepository.findByOrderId(orderId);
-    }
-    
-    @Transactional
-    public PaymentResponse refundTransaction(Long transactionId) {
-        Transaction transaction = getTransactionById(transactionId);
-        
-        // Vérifier que la transaction peut être remboursée
-        if (transaction.getStatus() != TransactionStatus.SUCCESS) {
-            throw new InvalidPaymentException("Seules les transactions réussies peuvent être remboursées");
-        }
-        
-        // Mettre à jour le statut
-        transaction.setStatus(TransactionStatus.REFUNDED);
-        transaction.setUpdatedAt(LocalDateTime.now());
-        transaction = transactionRepository.save(transaction);
-        
-        log.info("Remboursement effectué pour la transaction: {}", transactionId);
-        
-        PaymentResponse response = new PaymentResponse();
-        response.setTransactionId(transaction.getId());
-        response.setOrderId(transaction.getOrderId());
-        response.setStatus(TransactionStatus.REFUNDED);
-        response.setMessage("Remboursement effectué avec succès");
-        response.setAmount(transaction.getAmount());
-        response.setCurrency(transaction.getCurrency());
-        response.setTimestamp(LocalDateTime.now());
+        response.setMessage(message);
         
         return response;
     }

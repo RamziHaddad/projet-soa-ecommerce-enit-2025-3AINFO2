@@ -5,8 +5,14 @@ import com.ecommerce.payment.dto.PaymentResponse;
 import com.ecommerce.payment.entity.Transaction;
 import com.ecommerce.payment.service.PaymentService;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+// On retire les imports Lombok inutiles
+// import lombok.RequiredArgsConstructor;
+// import lombok.extern.slf4j.Slf4j;
+
+// On ajoute les imports pour le Logger manuel
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,11 +21,19 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/payments")
-@RequiredArgsConstructor
-@Slf4j
+// @RequiredArgsConstructor  <-- Retiré (car Lombok plante)
+// @Slf4j                    <-- Retiré (car Lombok plante)
 public class PaymentController {
     
+    // 1. Création manuelle du Logger
+    private static final Logger log = LoggerFactory.getLogger(PaymentController.class);
+    
     private final PaymentService paymentService;
+    
+    // 2. Création manuelle du Constructeur (Injection de dépendance)
+    public PaymentController(PaymentService paymentService) {
+        this.paymentService = paymentService;
+    }
     
     /**
      * Effectuer un paiement

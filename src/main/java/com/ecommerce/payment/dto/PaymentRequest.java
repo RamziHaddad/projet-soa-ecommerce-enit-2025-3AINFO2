@@ -2,15 +2,11 @@ package com.ecommerce.payment.dto;
 
 import com.ecommerce.payment.enums.PaymentMethod;
 import jakarta.validation.constraints.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
 public class PaymentRequest {
     
+    private String requestId;
+
     @NotNull(message = "Order ID est obligatoire")
     private Long orderId;
     
@@ -28,7 +24,6 @@ public class PaymentRequest {
     @NotNull(message = "La méthode de paiement est obligatoire")
     private PaymentMethod paymentMethod;
     
-    // Informations de carte (optionnel selon la méthode)
     @Pattern(regexp = "^[0-9]{16}$", message = "Le numéro de carte doit contenir 16 chiffres")
     private String cardNumber;
     
@@ -39,7 +34,44 @@ public class PaymentRequest {
     private String expiryDate;
     
     @Pattern(regexp = "^[0-9]{3,4}$", message = "CVV invalide")
-    private String cvv; // Ne sera jamais stocké
+    private String cvv; 
     
     private String description;
+
+    // --- CONSTRUCTEUR VIDE ---
+    public PaymentRequest() {}
+
+    // --- GETTERS & SETTERS ---
+    public String getRequestId() { return requestId; }
+    public void setRequestId(String requestId) { this.requestId = requestId; }
+
+    public Long getOrderId() { return orderId; }
+    public void setOrderId(Long orderId) { this.orderId = orderId; }
+
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
+
+    public Double getAmount() { return amount; }
+    public void setAmount(Double amount) { this.amount = amount; }
+
+    public String getCurrency() { return currency; }
+    public void setCurrency(String currency) { this.currency = currency; }
+
+    public PaymentMethod getPaymentMethod() { return paymentMethod; }
+    public void setPaymentMethod(PaymentMethod paymentMethod) { this.paymentMethod = paymentMethod; }
+
+    public String getCardNumber() { return cardNumber; }
+    public void setCardNumber(String cardNumber) { this.cardNumber = cardNumber; }
+
+    public String getCardHolderName() { return cardHolderName; }
+    public void setCardHolderName(String cardHolderName) { this.cardHolderName = cardHolderName; }
+
+    public String getExpiryDate() { return expiryDate; }
+    public void setExpiryDate(String expiryDate) { this.expiryDate = expiryDate; }
+
+    public String getCvv() { return cvv; }
+    public void setCvv(String cvv) { this.cvv = cvv; }
+
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
 }

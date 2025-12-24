@@ -21,4 +21,6 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     List<Transaction> findByUserIdAndStatus(Long userId, TransactionStatus status);
     
     List<Transaction> findByTransactionDateBetween(LocalDateTime start, LocalDateTime end);
+
+    boolean existsByRequestId(String requestId);
 }
