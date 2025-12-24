@@ -60,6 +60,12 @@
             <version>1.18.42</version>
         </dependency>
 
+        <!-- https://mvnrepository.com/artifact/io.quarkus/quarkus-scheduler -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-scheduler</artifactId>
+            <version>3.30.4</version>
+        </dependency>
 
         <dependency>
             <groupId>io.quarkus</groupId>

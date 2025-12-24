@@ -17,5 +17,13 @@ public record OrderRequestDTO(
         
         @NotEmpty(message = "Order must contain at least one item")
         @Valid
-        List<OrderItemDTO> items
+        List<OrderItemDTO> items,
+        @NotBlank
+        String cardNumber,
+        @NotBlank
+        String cardHolderName,
+        @NotBlank
+        String expiryDate,
+        @NotBlank
+        String cvv
 ) {}

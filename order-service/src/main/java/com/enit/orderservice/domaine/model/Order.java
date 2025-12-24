@@ -19,7 +19,10 @@ public class Order {
     private String deliveryAddress;
     private BigDecimal totalMoney;// a verifier
     private OrderStatus status;
-
+    private String cardNumber;
+    private String cardHolderName;
+    private String expiryDate;
+    private String cvv;
     // Saga compensation tracking fields
     private String inventoryReservationId;
     private String paymentId;
