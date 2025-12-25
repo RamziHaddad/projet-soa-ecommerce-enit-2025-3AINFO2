@@ -6,4 +6,9 @@ import java.util.List;
 public interface ProductSearchRepository extends ElasticsearchRepository<ProductDocument, String> {
 
     List<ProductDocument> findByNameContainingIgnoreCase(String keyword);
+    List<ProductDocument> findByNameContainingIgnoreCaseOrDescriptionContainingIgnoreCase(
+            String name, String descriptio);
+    // recherche  qui tolère les fautes de frappe ou variation
+    List<ProductDocument> findFuzzy(String keyword);
+
 }
