@@ -136,7 +136,7 @@ public class OrderController {
         description = "Forbidden - Admin access required"
     )
     public Response deleteAllOrders() {
-        // TODO: Add @RolesAllowed("admin") when security is implemented
+        
         service.deleteAllOrders();
         return Response.noContent().build();
     }
