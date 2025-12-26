@@ -280,7 +280,6 @@ public class OrderSagaOrchestrator {
         notificationEventProducer.publishNotification(event);
     }
 
-    @Transactional
     private void completeSaga(Order order, SagaState sagaState) {
         LOG.infof("Completing saga for order: %s", order.getOrderId());
 
@@ -294,7 +293,6 @@ public class OrderSagaOrchestrator {
         LOG.infof("Saga completed successfully for order: %s", order.getOrderId());
     }
 
-    @Transactional
     private void failSaga(Order order, SagaState sagaState, String reason) {
         LOG.errorf("Failing saga for order: %s, reason: %s", order.getOrderId(), reason);
 
@@ -310,7 +308,6 @@ public class OrderSagaOrchestrator {
         LOG.infof("Saga failed for order: %s", order.getOrderId());
     }
 
-    @Transactional
     private void compensateSaga(Order order, SagaState sagaState, String reason) {
         LOG.warnf("Compensating saga for order: %s, reason: %s", order.getOrderId(), reason);
 
