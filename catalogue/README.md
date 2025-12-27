@@ -1,68 +1,52 @@
 # catalogue
 
-This project uses Quarkus, the Supersonic Subatomic Java Framework.
+📦 Catalogue Service – SOA E-commerce
+📖 Description
 
-If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.
+Le Catalogue Service est un microservice REST responsable de la gestion des produits du catalogue dans une application e-commerce basée sur une architecture SOA / Microservices.
 
-## Running the application in dev mode
+Il permet de gérer les produits
+🚀 Démarrage Rapide
+Prérequis
 
-You can run your application in dev mode that enables live coding using:
+Java 17+
+Maven 3.8+
+PostgreSQL
 
-```shell script
-./mvnw quarkus:dev
-```
+Installation
 
-> **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at <http://localhost:8080/q/dev/>.
+Créer la base de données
 
-## Packaging and running the application
+sqlCREATE DATABASE Catalog;
 
-The application can be packaged using:
+Lancer l'application
 
-```shell script
-./mvnw package
-```
+bash./mvnw quarkus:dev
+L'application démarre sur http://localhost:8083
+📋 API Endpoints
+Produits
+MéthodeEndpointDescriptionGET/api/productsListe tous les produitsGET
+/api/products/{id}Récupère un produit
+POST/api/productsCrée un produit
+PUT/api/products/{id}Met à jour un produitP
+UT/api/products/{id}/priceMet à jour le prix
+DELETE/api/products/{id}Supprime un produit
 
-It produces the `quarkus-run.jar` file in the `target/quarkus-app/` directory.
-Be aware that it’s not an _über-jar_ as the dependencies are copied into the `target/quarkus-app/lib/` directory.
+#🐛 Dépannage
+Les événements ne se traitent pas ?
 
-The application is now runnable using `java -jar target/quarkus-app/quarkus-run.jar`.
+Vérifier que le service d'indexation tourne sur le port 8082
+Consulter les logs : ./mvnw quarkus:dev
+Vérifier les événements en attente : GET /api/outbox/pending
 
-If you want to build an _über-jar_, execute the following command:
+Erreur de connexion à la DB ?
 
-```shell script
-./mvnw package -Dquarkus.package.jar.type=uber-jar
-```
+Vérifier que PostgreSQL est démarré
+Vérifier les credentials dans application.properties
 
-The application, packaged as an _über-jar_, is now runnable using `java -jar target/*-runner.jar`.
+📦 Technologies
 
-## Creating a native executable
-
-You can create a native executable using:
-
-```shell script
-./mvnw package -Dnative
-```
-
-Or, if you don't have GraalVM installed, you can run the native executable build in a container using:
-
-```shell script
-./mvnw package -Dnative -Dquarkus.native.container-build=true
-```
-
-You can then execute your native executable with: `./target/catalogue-1.0.0-SNAPSHOT-runner`
-
-If you want to learn more about building native executables, please consult <https://quarkus.io/guides/maven-tooling>.
-
-## Related Guides
-
-- Hibernate ORM ([guide](https://quarkus.io/guides/hibernate-orm)): Define your persistent model with Hibernate ORM and Jakarta Persistence
-
-## Provided Code
-
-### Hibernate ORM
-
-Create your first JPA entity
-
-[Related guide section...](https://quarkus.io/guides/hibernate-orm)
-
-
+Quarkus - Framework Java
+PostgreSQL - Base de données
+Hibernate - ORM
+JAX-RS - API REST
