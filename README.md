@@ -46,4 +46,17 @@ Selon le résultat du traitement :
 * **Appel Distant :**
   * En cas de succès, le client **Feign** (`OrderClient`) envoie une requête `PUT` au microservice **Order-Service** pour confirmer la commande.
   * Cet appel est protégé par un bloc `try-catch` (Resilience Pattern) pour ne pas invalider un paiement réussi en cas d'indisponibilité du service commande.
+## Microservices Patterns Implemented
+### 1. Retry Pattern (Resilience4j)
+Automatically retries failed calls to the Order Service up to 3 times with exponential backoff (2s, 4s, 8s). Configured in application.properties and used via @Retry annotation in PaymentService.
+### 2. Circuit Breaker Pattern (Resilience4j)
+Prevents cascading failures by opening the circuit after 50% failure rate in a 10-request window. Protects the Order Service integration with automatic fallback handling.
+### 3. Distributed Tracing (Micrometer Tracing + Zipkin)
+Tracks requests across services with unique trace IDs and span IDs. All logs include trace context for debugging distributed transactions. Sends trace data to Zipkin for visualization.
+### 4. API Gateway Integration (OpenFeign)
+Uses declarative REST client (OrderClient) for inter-service communication with automatic serialization/deserialization and load balancing support.
+### 5. Saga Pattern (Compensating Transactions)
+Implements distributed transaction management - if order confirmation fails after payment, the payment is automatically refunded and marked as REFUNDED in the database.
+### 6. Idempotency Pattern
+Prevents duplicate payment processing using unique requestId. Each payment request is checked against existing transactions before processing.
 
