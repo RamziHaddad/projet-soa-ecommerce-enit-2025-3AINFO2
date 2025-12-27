@@ -1,7 +1,7 @@
 package com.ecommerce.payment.security;
 
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm; // Optionnel selon la version
+import io.jsonwebtoken.SignatureAlgorithm; 
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 
 import java.security.Key;
 import java.nio.charset.StandardCharsets;
-import java.util.Date; // <--- L'IMPORT MANQUANT
+import java.util.Date; 
 
 @Component
 public class JwtUtils {
@@ -41,21 +41,20 @@ public class JwtUtils {
         byte[] keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
         return Keys.hmacShaKeyFor(keyBytes);
     }
+//Cette section est utilisée pour générer un token de test valide lors du démarrage de l'application pour tester facilement les appels sécurisés.
 
     @PostConstruct
     public void generateTestToken() {
         try {
             String testToken = Jwts.builder()
-                    .setSubject("ghofrane")
+                    .setSubject("test")
                     .setIssuedAt(new Date())
                     .setExpiration(new Date((new Date()).getTime() + 86400000)) // 24h
                     .signWith(getSigningKey()) // Utilise la clé directement
                     .compact();
             
-            System.out.println("=======================================");
             System.out.println("TON JETON DE TEST VALIDE :");
             System.out.println(testToken);
-            System.out.println("=======================================");
         } catch (Exception e) {
             log.error("Erreur lors de la génération du token de test : {}", e.getMessage());
         }

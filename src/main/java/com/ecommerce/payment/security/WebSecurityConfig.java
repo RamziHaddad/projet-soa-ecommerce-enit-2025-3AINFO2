@@ -24,20 +24,18 @@ public class WebSecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            // Désactive le CSRF car nous sommes en architecture Stateless (sans état) avec JWT
             .csrf(csrf -> csrf.disable())
             
-            // Définit la gestion des sessions sur STATELESS (pas de stockage de session sur le serveur)
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             
             .authorizeHttpRequests(auth -> auth
                 // Autorise l'accès public au Health Check pour le monitoring
                 .requestMatchers("/api/payments/health").permitAll()
                 
-                // Autorise l'affichage visuel de Swagger (UI et docs JSON)
+                //mais on a tester le blocage dans swagger pour verifier que le jwt fonctionne (ici on a utiliser le jwt de test genere dans JwtUtils)
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 
-                // BLOQUE tout le reste (process, refund, transactions, etc.)
+                // Bloque tout le reste (process, refund, transactions, etc.)
                 // Un JWT valide sera obligatoirement requis pour ces appels
                 .anyRequest().authenticated()
             );

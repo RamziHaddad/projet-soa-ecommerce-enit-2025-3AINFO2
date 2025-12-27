@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 
 //  url = "http://localhost:8081" pour tester en local
-//pour tester la sortie avec webhook
+//pour verifier que la sortie fonctionne avec webhook
 @FeignClient(name = "order-service", url ="https://webhook.site/d7a28bf0-5651-46f6-9ea9-9969b1d01f36")
 public interface OrderClient {
 

@@ -1,4 +1,4 @@
-package com.ecommerce.payment.service;
+package com.ecommerce.payment.client;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

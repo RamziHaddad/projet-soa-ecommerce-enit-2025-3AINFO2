@@ -38,10 +38,8 @@ public class PaymentRequest {
     
     private String description;
 
-    // --- CONSTRUCTEUR VIDE ---
     public PaymentRequest() {}
 
-    // --- GETTERS & SETTERS ---
     public String getRequestId() { return requestId; }
     public void setRequestId(String requestId) { this.requestId = requestId; }
 

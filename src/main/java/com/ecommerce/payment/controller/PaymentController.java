@@ -5,11 +5,6 @@ import com.ecommerce.payment.dto.PaymentResponse;
 import com.ecommerce.payment.entity.Transaction;
 import com.ecommerce.payment.service.PaymentService;
 import jakarta.validation.Valid;
-// On retire les imports Lombok inutiles
-// import lombok.RequiredArgsConstructor;
-// import lombok.extern.slf4j.Slf4j;
-
-// On ajoute les imports pour le Logger manuel
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,9 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/payments")
-// @RequiredArgsConstructor  <-- Retiré (car Lombok plante)
-// @Slf4j                    <-- Retiré (car Lombok plante)
+@RequestMapping("/api/payments")                  
 public class PaymentController {
     
     // 1. Création manuelle du Logger

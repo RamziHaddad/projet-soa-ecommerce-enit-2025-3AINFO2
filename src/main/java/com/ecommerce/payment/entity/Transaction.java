@@ -58,10 +58,8 @@ public class Transaction {
     @Column(unique = true, nullable = false)
     private String requestId;
 
-    // --- CONSTRUCTEUR VIDE ---
     public Transaction() {}
 
-    // --- AUTOMATISATION DES DATES ---
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
@@ -73,7 +71,6 @@ public class Transaction {
         updatedAt = LocalDateTime.now();
     }
 
-    // --- GETTERS & SETTERS (Code manuel pour remplacer Lombok pcq il y un probleme ) ---
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
