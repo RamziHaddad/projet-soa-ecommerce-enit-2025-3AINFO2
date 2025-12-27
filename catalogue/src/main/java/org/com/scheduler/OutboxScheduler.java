@@ -39,7 +39,6 @@ public class OutboxScheduler {
     @Inject
     ObjectMapper objectMapper;
     
-    // à vérifier ce configuration
     @ConfigProperty(name = "indexation.service.url", defaultValue = "")
     String indexationUrl;
     
