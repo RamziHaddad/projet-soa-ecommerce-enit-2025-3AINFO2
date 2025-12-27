@@ -1,3 +1,23 @@
+## Instructions de Configuration
+
+### 1. Configuration de la Base de Données
+#### Créez une base de données MySQL 
+
+CREATE DATABASE payment_db;
+
+
+### 2. Configurer les Identifiants de la Base de Données
+
+#### Utiliser des variables d’environnement
+Définissez les variables d’environnement avant de lancer l’application :
+
+Windows (PowerShell) :
+
+$env:DB_USERNAME="root"
+$env:DB_PASSWORD="your_password"
+.\mvnw.cmd spring-boot:run
+
+
 ## Logique Métier (Payment Workflow)
 
 Le service implémente un flux de traitement séquentiel en 4 étapes via la méthode principale `processPayment` :
