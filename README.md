@@ -1,14 +1,14 @@
 ## Instructions de Configuration
 
 ### 1. Configuration de la Base de Données
-Créez une base de données MySQL (ou laissez l’application la créer automatiquement) :
+#### Créez une base de données MySQL 
 
 CREATE DATABASE payment_db;
 
 
 ### 2. Configurer les Identifiants de la Base de Données
 
-Utiliser des variables d’environnement
+#### Utiliser des variables d’environnement
 Définissez les variables d’environnement avant de lancer l’application :
 
 Windows (PowerShell) :
